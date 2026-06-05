@@ -5,6 +5,11 @@
     "version": "1.0.0",
     "android": {
       "package": "com.baravordgeo.app"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "2d829b13-5854-46a5-bf01-b453f8659043"
+      }
     }
   }
 }
