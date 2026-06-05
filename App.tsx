@@ -28,8 +28,8 @@ import {
   ChevronLeft,
   Settings
 } from 'lucide-react';
-import { DART_MAIN_CODE } from './dartCode';
-import { iranProvincesAndCities } from './iran_data';
+import { DART_MAIN_CODE } from './src/dartCode';
+import { iranProvincesAndCities } from './src/iran_data';
 
 const surveyingServices: Record<string, Record<string, string[]>> = {
   'نقشه ثبتی ماده (۱۴۷)': {
