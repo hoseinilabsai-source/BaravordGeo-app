@@ -1,0 +1,6 @@
+{
+  "name": "Land Surveying Cost Estimation",
+  "description": "A high-fidelity mobile simulator and Flutter source exporter for Persian Land Surveying Cost Estimation and Pricing Strategy.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "name": "برآورد ژئو",
+    "slug": "baravord-geo",
+    "version": "1.0.0",
+    "android": {
+      "package": "com.baravordgeo.app"
+    }
+  }
+}
