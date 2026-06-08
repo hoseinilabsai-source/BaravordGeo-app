@@ -349,7 +349,7 @@ export default function App() {
   const [finalAgreedPrice, setFinalAgreedPrice] = useState('');
   const [priceStrategy, setPriceStrategy] = useState<'base' | 'official' | 'suggested'>('suggested');
   const [hasSubmittedPrice, setHasSubmittedPrice] = useState(false);
-  const [marketPulse, setMarketPulse] = useState({ count: 0, maxProv: '---', maxPrice: 0, minProv: '---', minPrice: 0 });
+  const [marketPulse, setMarketPulse] = useState({ count: 0, maxProv: '---', maxPrice: 0, minProv: '---', minPrice: 0, avgPrice: 0 });
 
   const brandTheme = {
     primary: "#0B1D35", 
@@ -369,6 +369,7 @@ export default function App() {
         .then((data: any[]) => {
           if (data && data.length > 0) {
             const provinceGroups: { [key: string]: { total: number; count: number } } = {};
+            let globalTotal = 0;
             data.forEach(item => {
               const prov = item.province || 'ناشناس';
               const price = typeof item.final_price === 'number' 
@@ -380,6 +381,7 @@ export default function App() {
               }
               provinceGroups[prov].total += price;
               provinceGroups[prov].count += 1;
+              globalTotal += price;
             });
 
             let maxProv = '---';
@@ -399,12 +401,15 @@ export default function App() {
               }
             });
 
+            const overallAvg = globalTotal / data.length;
+
             setMarketPulse({
               count: data.length,
               maxProv,
               maxPrice: maxPrice === -Infinity ? 0 : Math.round(maxPrice),
               minProv,
-              minPrice: minPrice === Infinity ? 0 : Math.round(minPrice)
+              minPrice: minPrice === Infinity ? 0 : Math.round(minPrice),
+              avgPrice: Math.round(overallAvg)
             });
           }
         })
@@ -439,7 +444,25 @@ export default function App() {
   const unitStringVal = getUnitForSubservice(subBranch);
   const rawBasePrice = calculateSmartTariff(baseTariffVal, numVolumeVal, unitStringVal, subBranch);
   const derivedOfficialPrice = Math.round(rawBasePrice * hardnessMultiplier * (1 + (overheadProfitPct / 100)) * (1 - (legalDeductionsPct / 100)));
-  const derivedSuggestedPrice = Math.round(totalCalculatedCost * 1.15);
+  
+  // سیستم قیمت گذاری پویا هوشمند (Hybrid & Collared Pricing)
+  let derivedSuggestedPrice = Math.round(totalCalculatedCost * 1.15); // پیش‌فرض برای حالت خام
+  
+  if (marketPulse && marketPulse.count >= 5 && marketPulse.avgPrice > 0) {
+    const C = totalCalculatedCost; 
+    const M = marketPulse.avgPrice;
+    const P_hybrid = (0.6 * C) + (0.4 * M);
+
+    const O = derivedOfficialPrice;
+    const upperBound = O * 1.2;
+    const lowerBound = O * 0.8;
+
+    let finalPrice = P_hybrid;
+    if (finalPrice > upperBound) finalPrice = upperBound;
+    if (finalPrice < lowerBound) finalPrice = lowerBound;
+
+    derivedSuggestedPrice = Math.round(finalPrice);
+  }
 
   useEffect(() => {
     if (priceStrategy === 'base') {
@@ -1533,11 +1556,13 @@ export default function App() {
               <div className="p-4 rounded-xl text-white shadow-lg space-y-3 relative overflow-hidden" style={{ backgroundColor: brandTheme.primary, boxShadow: `0 10px 15px -3px ${brandTheme.primary}20` }}>
                 <span className="text-[10px] font-bold block uppercase pt-2" style={{ color: brandTheme.accent }}>۴. پیشنهاد هوشمندانه سیستم</span>
                 <div className="flex justify-between items-baseline">
-                  <span className="text-2xl font-mono font-black" style={{ color: brandTheme.accent }}>{formatPersianCurrency(totalCalculatedCost * 1.15)}</span>
+                  <span className="text-2xl font-mono font-black" style={{ color: brandTheme.accent }}>{formatPersianCurrency(derivedSuggestedPrice)}</span>
                   <span className="text-[10px] font-bold" style={{ color: brandTheme.accent }}>ریال ایران</span>
                 </div>
                 <p className="text-[10px] leading-normal opacity-90 text-slate-100">
-                  حاشیه سود ایمن ۱۵٪: دارای بالاترین درصد شانس پذیرش مشتری بدون فدا کردن کیفیت فنی پروژه.
+                  {marketPulse.count >= 5 
+                    ? "محاسبه ترکیبی (وزن‌دهی ۶۰٪ هزینه شخصی و ۴۰٪ بازار) با اعمال محدودیت قیمت مصوب." 
+                    : "حاشیه سود ایمن ۱۵٪ (داده‌های بازار هنوز برای محاسبه هوشمند کافی نیست)."}
                 </p>
               </div>
 
@@ -1628,7 +1653,7 @@ export default function App() {
                       />
                     </div>
                     <div className="flex items-baseline justify-between mt-1.5 font-mono">
-                      <span className="text-[9px] text-slate-400 font-sans font-medium">سود بهینه با شانس حداکثری توافق</span>
+                      <span className="text-[9px] text-slate-400 font-sans font-medium">شانس حداکثری توافق (ترکیبی/سود ثابت)</span>
                       <span className="text-sm font-black" style={{ color: priceStrategy === 'suggested' ? brandTheme.primary : '#1e293b' }}>
                         {formatPersianCurrency(derivedSuggestedPrice)} <span className="text-[10px] font-sans font-bold">ریال</span>
                       </span>
