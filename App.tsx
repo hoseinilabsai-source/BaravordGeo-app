@@ -957,7 +957,12 @@ export default function App() {
                               <input 
                                 type="text" 
                                 value={fullName}
-                                onChange={(e) => setFullName(e.target.value)}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === '' || /^[ \u0600-\u06FF\u200C]*$/.test(val)) {
+                                    setFullName(val);
+                                  }
+                                }}
                                 placeholder="مثال: مهندس علیرضا دهقانی"
                                 className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-1"
                                 style={{ stroke: brandTheme.accent }}
@@ -1062,8 +1067,16 @@ export default function App() {
 
                           <button 
                             onClick={() => {
-                              if (!fullName) {
+                              if (!fullName || fullName.trim() === '') {
                                 alert('لطفاً نام را وارد نمایید.');
+                                return;
+                              }
+                              if (!/^[ \u0600-\u06FF\u200C]+$/.test(fullName)) {
+                                alert('نام و نام خانوادگی فقط باید شامل حروف فارسی و فاصله باشد.');
+                                return;
+                              }
+                              if (!experienceYears || experienceYears.toString().trim() === '') {
+                                alert('سابقه کار الزامی است');
                                 return;
                               }
                               setFlowScreen('estimation');
