@@ -28,8 +28,9 @@ import {
   ChevronLeft,
   Settings
 } from 'lucide-react';
-import { DART_MAIN_CODE } from './src/dartCode';
-import { iranProvincesAndCities } from './src/iran_data';
+import { DART_MAIN_CODE } from './dartCode';
+import { iranProvincesAndCities } from './iran_data';
+
 const surveyingServices: Record<string, Record<string, string[]>> = {
   'نقشه ثبتی ماده (۱۴۷)': {
     'برداشت میدانی': ['برداشت عرصه و اعیان'],
@@ -844,7 +845,7 @@ export default function App() {
                           
                           <div className="pt-4">
                             <input 
-                              type="number"
+                              type="text"
                               inputMode="numeric"
                               pattern="[0-9]*"
                               value={otpCode}
@@ -940,6 +941,15 @@ export default function App() {
                             <h3 className="text-base font-bold text-indigo-950 font-sans" style={{ fontWeight: 'bold' }}>مشخصات نقشه بردار</h3>
                             <p className="text-[11px] text-slate-500">لطفاً برای فیلتر تعرفه‌ها، جزئیات مجوز خود را به ثبت برسانید.</p>
                           </div>
+
+                          <button
+                            onClick={() => setAuthStep(3)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 w-fit"
+                            style={{ color: brandTheme.primary }}
+                          >
+                            <ArrowLeft className="w-4 h-4" style={{ color: brandTheme.accent }} />
+                            بازگشت به مرحله قبل
+                          </button>
 
                           <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
                             <div>
@@ -1079,22 +1089,38 @@ export default function App() {
                     
                     <div className="text-white px-4 py-3 flex justify-between items-center shadow-md" style={{ backgroundColor: brandTheme.primary, borderBottom: `1px solid ${brandTheme.accent}` }}>
                       <button 
-                        onClick={resetSimulator}
-                        className="p-1 hover:text-white cursor-pointer"
+                        onClick={() => {
+                          if (estimationTab > 1) {
+                            setEstimationTab((estimationTab - 1) as 1 | 2 | 3);
+                          } else {
+                            setFlowScreen('auth');
+                          }
+                        }}
+                        className="p-1 hover:bg-white/10 rounded cursor-pointer"
                         style={{ color: brandTheme.accent }}
-                        title="خروج و برگشت زودهنگام"
+                        title="بازگشت به مرحله قبلی"
                       >
-                        <RotateCcw className="w-5 h-5" />
+                        <ArrowLeft className="w-5 h-5" />
                       </button>
-                      <h2 className="text-sm font-bold tracking-tight text-center flex-grow" style={{ fontWeight: 'bold' }}>{brandTheme.brandName}</h2>
-                      <button 
-                        onClick={() => setShowSupportSheet(true)}
-                        className="p-1 hover:text-white transition-colors cursor-pointer"
-                        style={{ color: brandTheme.accent }}
-                        title="پشتیبانی و بازخورد"
-                      >
-                        <HelpCircle className="w-5 h-5" />
-                      </button>
+                      <h2 className="text-sm font-bold tracking-tight text-center flex-grow mx-2" style={{ fontWeight: 'bold' }}>{brandTheme.brandName}</h2>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={resetSimulator}
+                          className="p-1 hover:text-white cursor-pointer"
+                          style={{ color: brandTheme.accent }}
+                          title="خروج و برگشت زودهنگام"
+                        >
+                          <RotateCcw className="w-5 h-5" />
+                        </button>
+                        <button 
+                          onClick={() => setShowSupportSheet(true)}
+                          className="p-1 hover:text-white transition-colors cursor-pointer"
+                          style={{ color: brandTheme.accent }}
+                          title="پشتیبانی و بازخورد"
+                        >
+                          <HelpCircle className="w-5 h-5" />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="bg-white flex border-b border-slate-200">
