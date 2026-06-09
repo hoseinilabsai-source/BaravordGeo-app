@@ -28,8 +28,8 @@ import {
   ChevronLeft,
   Settings
 } from 'lucide-react';
-import { DART_MAIN_CODE } from './src/dartCode';
-import { iranProvincesAndCities } from './src/iran_data';
+import { DART_MAIN_CODE } from './dartCode';
+import { iranProvincesAndCities } from './iran_data';
 
 const surveyingServices: Record<string, Record<string, string[]>> = {
   'نقشه ثبتی ماده (۱۴۷)': {
@@ -249,6 +249,7 @@ export default function App() {
           const data = await response.json();
           
           if (Array.isArray(data)) {
+            // فیلتر فوق‌هوشمند برای نادیده گرفتن تمام فاصله‌ها، پرانتزها و تفاوت اعداد
             const cleanStr = (s: any) => {
               if (!s) return '';
               return String(s)
@@ -281,6 +282,7 @@ export default function App() {
             if (match && match.price != null) {
               setRemoteBaseTariff(Number(match.price));
             } else {
+              // استفاده از دیتابیس جایگزین در صورت پیدا نشدن دقیق در سرور
               const localDatabase: Record<string, Record<string, number>> = {
                 'همه': { 'برداشت عرصه و اعیان': 3500000, 'تهیه نقشه تعیین موقعیت ملک': 7600000, 'دفع آبهای سطحی': 35000000, 'نقشه تک خطی': 1500000, 'طراحی پروفیل طولی و عرضی': 2200000, 'پیاده سازی قطعات تفکیکی': 3000000, 'پیاده سازی طرح اجرایی': 4000000 },
                 'شهرداری یزد': { 'برداشت عوارض و مبلمان و تاسیسات شهری': 6000000, 'برداشت مسطحاتی و توپوگرافی معابر شهری جهت تفکیک': 18000000, 'برداشت توپوگرافی معابر شهری جهت کد گذاری': 15000000, 'تعیین بر و کف پلاک': 5000000, 'برداشت عوارض شهری': 7500000 },
@@ -449,14 +451,21 @@ export default function App() {
   const rawBasePrice = calculateSmartTariff(baseTariffVal, numVolumeVal, unitStringVal, subBranch);
   const derivedOfficialPrice = Math.round(rawBasePrice * hardnessMultiplier * (1 + (overheadProfitPct / 100)) * (1 - (legalDeductionsPct / 100)));
   
+  // Calculate system-suggested price using the 3-stage dynamic pricing algorithm (anchor and weighted average)
   const calculateDynamicSuggestedPrice = (): number => {
     const C = totalCalculatedCost;
+    
+    // Stage 1: Cold Start Check (Check market data maturity)
     if (marketPulse.count < 5) {
       return Math.round(C * 1.15);
     }
-    const M = marketPulse.avgPrice;
+    
+    // Stage 2: Hybrid Price Calculation (60% actual cost, 40% market average)
+    const M = marketPulse.avgPrice; // Market Average
     const pHybrid = (0.6 * C) + (0.4 * M);
-    const O = derivedOfficialPrice;
+    
+    // Stage 3: Price Collar / Official Price Anchor (Clamping between 80% and 120% of official tariff)
+    const O = derivedOfficialPrice; // Official tariff
     const ceiling = 1.2 * O;
     const floor = 0.8 * O;
     
@@ -466,6 +475,7 @@ export default function App() {
     } else if (pHybrid < floor) {
       clampedPrice = floor;
     }
+    
     return Math.round(clampedPrice);
   };
 
@@ -525,6 +535,7 @@ export default function App() {
 
     setTotalCalculatedCost(finalBillValue);
     setPriceStrategy('suggested');
+    
     setFlowScreen('dashboard');
   };
 
@@ -577,14 +588,6 @@ export default function App() {
     setFlowScreen('auth');
     setAuthStep(1);
     setOtpCode('');
-  };
-
-  // تابع فیلتر حروف فارسی و فاصله برای نام
-  const handleNameChange = (val: string) => {
-    const persianRegex = /^[\u0600-\u06FF\s]*$/;
-    if (persianRegex.test(val)) {
-      setFullName(val);
-    }
   };
 
   return (
@@ -752,7 +755,7 @@ export default function App() {
               <div className="flex-1 flex flex-col overflow-y-auto">
                 
                 {flowScreen === 'auth' && (
-                  <div className="flex-grow flex flex-col justify-between p-5 bg-white">
+                  <div className="flex-grow flex flex-col bg-white p-5 pt-1 justify-start">
                     <div>
                       <div className="text-white -mx-5 -mt-5 p-4 border-b flex justify-between items-center shadow-md relative pl-1" style={{ backgroundColor: brandTheme.primary, borderBottomColor: brandTheme.accent }}>
                         <div className="w-8 shrink-0" />
@@ -770,7 +773,7 @@ export default function App() {
                         </button>
                       </div>
 
-                      <div className="flex justify-center items-center mt-6 mb-8 gap-2">
+                      <div className="flex justify-center items-center mt-3 mb-5 gap-1.5">
                         {[1, 2, 3, 4].map((stepNum) => {
                           const isActive = authStep >= stepNum;
                           return (
@@ -811,6 +814,7 @@ export default function App() {
                                 value={mobileNumber}
                                 onChange={(e) => setMobileNumber(e.target.value)}
                                 className="w-full bg-slate-50 border border-slate-300 rounded-xl py-2.5 pr-11 pl-4 text-center text-md font-mono tracking-wider focus:outline-none focus:ring-2 focus:border-transparent text-slate-800"
+                                style={{ stroke: brandTheme.primary }} 
                                 placeholder="09123456789"
                                 maxLength={11}
                               />
@@ -847,6 +851,7 @@ export default function App() {
                               value={otpCode}
                               onChange={(e) => setOtpCode(e.target.value)}
                               className="w-full bg-slate-50 border border-slate-300 rounded-xl py-3 text-center text-2xl font-bold font-mono tracking-widest focus:outline-none focus:ring-2 text-slate-800"
+                              style={{ focusRing: brandTheme.accent }}
                               placeholder="۱۲۳۴"
                               maxLength={4}
                             />
@@ -869,10 +874,9 @@ export default function App() {
                           
                           <button 
                             onClick={() => setAuthStep(1)}
-                            className="w-full text-center text-xs font-semibold hover:opacity-80 flex items-center justify-center gap-1 cursor-pointer"
+                            className="w-full text-center text-xs font-semibold hover:opacity-80"
                             style={{ color: brandTheme.primary }}
                           >
-                            <ArrowLeft className="w-3.5 h-3.5" />
                             اصلاح شماره همراه مجدد
                           </button>
                         </div>
@@ -933,29 +937,35 @@ export default function App() {
 
                       {authStep === 4 && (
                         <div className="space-y-4">
-                          {/* دکمه بازگشت به مرحله ۳ */}
-                          <button
-                            onClick={() => setAuthStep(3)}
-                            className="flex items-center gap-1 text-xs font-semibold hover:opacity-85 text-slate-500 cursor-pointer mb-2"
-                          >
-                            <ChevronLeft className="w-4 h-4 rotate-180" />
-                            بازگشت به مرحله قبل
-                          </button>
-
                           <div className="text-center space-y-1">
                             <h3 className="text-base font-bold text-indigo-950 font-sans" style={{ fontWeight: 'bold' }}>مشخصات نقشه بردار</h3>
                             <p className="text-[11px] text-slate-500">لطفاً برای فیلتر تعرفه‌ها، جزئیات مجوز خود را به ثبت برسانید.</p>
                           </div>
 
-                          <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
+                          <button
+                            onClick={() => setAuthStep(3)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 w-fit"
+                            style={{ color: brandTheme.primary }}
+                          >
+                            <ArrowLeft className="w-4 h-4" style={{ color: brandTheme.accent }} />
+                            بازگشت به مرحله قبل
+                          </button>
+
+                          <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1 pt-1">
                             <div>
                               <label className="text-[11px] font-bold text-slate-700">نام و نام خانوادگی نقشه بردار</label>
                               <input 
                                 type="text" 
                                 value={fullName}
-                                onChange={(e) => handleNameChange(e.target.value)}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === '' || /^[ \u0600-\u06FF\u200C]*$/.test(val)) {
+                                    setFullName(val);
+                                  }
+                                }}
                                 placeholder="مثال: مهندس علیرضا دهقانی"
                                 className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-1"
+                                style={{ stroke: brandTheme.accent }}
                               />
                             </div>
 
@@ -1057,12 +1067,16 @@ export default function App() {
 
                           <button 
                             onClick={() => {
-                              if (!fullName.trim()) {
-                                alert('لطفاً نام و نام خانوادگی معتبر (حروف فارسی) وارد نمایید.');
+                              if (!fullName || fullName.trim() === '') {
+                                alert('لطفاً نام را وارد نمایید.');
                                 return;
                               }
-                              if (!experienceYears.trim()) {
-                                alert('فیلد سابقه کار نمی‌تواند خالی باشد. لطفاً میزان سابقه کاری خود را وارد کنید.');
+                              if (!/^[ \u0600-\u06FF\u200C]+$/.test(fullName)) {
+                                alert('نام و نام خانوادگی فقط باید شامل حروف فارسی و فاصله باشد.');
+                                return;
+                              }
+                              if (!experienceYears || experienceYears.toString().trim() === '') {
+                                alert('سابقه کار الزامی است');
                                 return;
                               }
                               setFlowScreen('estimation');
@@ -1090,27 +1104,36 @@ export default function App() {
                       <button 
                         onClick={() => {
                           if (estimationTab > 1) {
-                            setEstimationTab((prev) => (prev - 1) as any);
+                            setEstimationTab((estimationTab - 1) as 1 | 2 | 3);
                           } else {
                             setFlowScreen('auth');
-                            setAuthStep(4);
                           }
                         }}
-                        className="p-1 hover:text-white cursor-pointer flex items-center gap-1"
+                        className="p-1 hover:bg-white/10 rounded cursor-pointer"
                         style={{ color: brandTheme.accent }}
-                        title="بازگشت"
+                        title="بازگشت به مرحله قبلی"
                       >
-                        <ArrowLeft className="w-5 h-5 rotate-180" />
+                        <ArrowLeft className="w-5 h-5" />
                       </button>
-                      <h2 className="text-sm font-bold tracking-tight text-center flex-grow" style={{ fontWeight: 'bold' }}>{brandTheme.brandName}</h2>
-                      <button 
-                        onClick={() => setShowSupportSheet(true)}
-                        className="p-1 hover:text-white transition-colors cursor-pointer"
-                        style={{ color: brandTheme.accent }}
-                        title="پشتیبانی و بازخورد"
-                      >
-                        <HelpCircle className="w-5 h-5" />
-                      </button>
+                      <h2 className="text-sm font-bold tracking-tight text-center flex-grow mx-2" style={{ fontWeight: 'bold' }}>{brandTheme.brandName}</h2>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={resetSimulator}
+                          className="p-1 hover:text-white cursor-pointer"
+                          style={{ color: brandTheme.accent }}
+                          title="خروج و برگشت زودهنگام"
+                        >
+                          <RotateCcw className="w-5 h-5" />
+                        </button>
+                        <button 
+                          onClick={() => setShowSupportSheet(true)}
+                          className="p-1 hover:text-white transition-colors cursor-pointer"
+                          style={{ color: brandTheme.accent }}
+                          title="پشتیبانی و بازخورد"
+                        >
+                          <HelpCircle className="w-5 h-5" />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="bg-white flex border-b border-slate-200">
@@ -1470,7 +1493,7 @@ export default function App() {
                               <span className="text-xs font-bold text-slate-700 block mb-1">سرشکنی هزینه‌ها (مدیریت کارهای خرد)</span>
                               <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2">
                                 <div className="flex justify-between items-center">
-                                  <span className="text-[11px] font-bold text-slate-700">تعداد پروژه‌های همزمان در این اعزام</span>
+                                  <label className="flex items-center text-[11px] font-bold text-slate-700">تعداد پروژه‌های همزمان در این اعزام</label>
                                   <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full" style={{ backgroundColor: brandTheme.accent + '25', color: brandTheme.primary }}>{batchingFactor}</span>
                                 </div>
                                 <input 
@@ -1556,7 +1579,7 @@ export default function App() {
                         style={{ color: brandTheme.accent }}
                         title="برگشت به صفحه محاسبات"
                       >
-                        <ArrowLeft className="w-5 h-5 rotate-180" />
+                        <ArrowLeft className="w-5 h-5" />
                       </button>
                       <h2 className="text-sm font-bold text-center flex-grow" style={{ fontWeight: 'bold' }}>{brandTheme.brandName}</h2>
                       <button 
@@ -1582,8 +1605,27 @@ export default function App() {
                       <div className="bg-white p-4 rounded-xl border-t-4 shadow-sm space-y-3" style={{ borderTopColor: brandTheme.accent }}>
                         <span className="text-[11px] font-bold text-slate-500 block">هزینه بر اساس قیمت های مصوب</span>
                         {(() => {
+                          const parsePersianOrEnglishFloat = (str: string): number => {
+                            if (!str) return 0;
+                            const persianNumbers = [/۰/g, /۱/g, /۲/g, /۳/g, /۴/g, /۵/g, /۶/g, /۷/g, /۸/g, /۹/g];
+                            let clean = str;
+                            for (let i = 0; i < 10; i++) {
+                              clean = clean.replace(persianNumbers[i], i.toString());
+                            }
+                            const dict: Record<string, string> = {
+                              '۰': '0', '۱': '1', '۲': '2', '۳': '3', '۴': '4',
+                              '۵': '5', '۶': '6', '۷': '7', '۸': '8', '۹': '9'
+                            };
+                            let resolved = '';
+                            for (const char of clean) {
+                              resolved += dict[char] !== undefined ? dict[char] : char;
+                            }
+                            const val = parseFloat(resolved);
+                            return isNaN(val) ? 0 : val;
+                          };
+
                           const baseTariff = remoteBaseTariff ?? 0;
-                          const numVolume = parsePersianOrEnglishFloatHelper(volume);
+                          const numVolume = parsePersianOrEnglishFloat(volume);
                           const unitString = getUnitForSubservice(subBranch);
                           const rawBasePrice = calculateSmartTariff(baseTariff, numVolume, unitString, subBranch);
                           const approvedTariff = Math.round(rawBasePrice * hardnessMultiplier * (1 + (overheadProfitPct / 100)) * (1 - (legalDeductionsPct / 100)));
@@ -1617,7 +1659,7 @@ export default function App() {
                           className="w-full flex items-center justify-center gap-2 border-2 border-dashed font-bold py-3 px-4 rounded-xl transition-all text-xs cursor-pointer"
                           style={{ borderColor: brandTheme.accent, color: brandTheme.primary }}
                         >
-                          <Users className="w-4 h-4" style={{ color: brandTheme.accent }} />
+                          <Users className="w-4 h-4 text-emerald-600" style={{ color: brandTheme.accent }} />
                           ثبت برآورد من و مشاهده آمار کشوری
                         </button>
                       )}
@@ -1672,6 +1714,7 @@ export default function App() {
                         </p>
                         
                         <div className="space-y-2 pt-1">
+                          {/* 1. Base Price Option */}
                           <div 
                             onClick={() => setPriceStrategy('base')}
                             className="p-3 rounded-lg border text-right cursor-pointer transition-all flex flex-col justify-between"
@@ -1699,6 +1742,7 @@ export default function App() {
                             </div>
                           </div>
 
+                          {/* 2. Official Price Option */}
                           <div 
                             onClick={() => setPriceStrategy('official')}
                             className="p-3 rounded-lg border text-right cursor-pointer transition-all flex flex-col justify-between"
@@ -1726,6 +1770,7 @@ export default function App() {
                             </div>
                           </div>
 
+                          {/* 3. Suggested Price Option */}
                           <div 
                             onClick={() => setPriceStrategy('suggested')}
                             className="p-3 rounded-lg border text-right cursor-pointer transition-all flex flex-col justify-between"
@@ -1754,6 +1799,7 @@ export default function App() {
                           </div>
                         </div>
 
+                        {/* Selected Price indicator bar */}
                         <div className="mt-1 bg-slate-50 border border-slate-100 rounded-lg p-2 flex justify-between items-center flex-row-reverse">
                           <span className="text-[9px] font-bold text-slate-400">مبلغ انتخاب شده پیش‌نویس:</span>
                           <span className="text-sm font-mono font-black animate-pulse" style={{ color: brandTheme.primary }}>
