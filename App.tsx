@@ -845,7 +845,7 @@ export default function App() {
                           
                           <div className="pt-4">
                             <input 
-                              type="tel"
+                              type="number"
                               inputMode="numeric"
                               pattern="[0-9]*"
                               value={otpCode}
