@@ -302,7 +302,7 @@ export default function App() {
         }
       } catch (e) {
         setRemoteBaseTariff(null);
-      } final_price {
+      } finally {
         if (active) setIsRemoteLoading(false);
       }
     };
