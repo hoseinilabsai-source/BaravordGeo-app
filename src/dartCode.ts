@@ -247,7 +247,7 @@ double calculateSmartTariff(double basePrice, double volume, String unitString, 
   }
   if (unitString.contains("قیمت ثابت به اضافه") || (unitString.contains("قیمت ثابت") && unitString.contains("به اضافه"))) {
     double X = 200.0;
-    final match = RegExp(r"\\(?(\\d+)\\s+تا\\s+(\\d+)\\)?").firstMatch(unitString);
+    final match = RegExp(r"\((0-9+)\s+تا\s+(0-9+)\)").firstMatch(unitString);
     if (match != null) {
       X = double.tryParse(match.group(1)!) ?? 200.0;
     }
@@ -435,7 +435,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             CircleAvatar(
                               radius: 16,
                               backgroundColor: isActive ? theme.colorScheme.secondary : Colors.grey.shade300,
-                              child: Text('\$stepNum', style: const TextStyle(color: Colors.white)),
+                              child: Text('$stepNum', style: const TextStyle(color: Colors.white)),
                             ),
                             if (index < 3) Container(width: 20, height: 3, color: _currentStep > stepNum ? theme.colorScheme.secondary : Colors.grey.shade300),
                           ],
@@ -631,7 +631,7 @@ class TariffApiService {
       );
       return response.statusCode >= 200 && response.statusCode < 300;
     } catch (e) {
-      debugPrint('Error inserting project: \$e');
+      debugPrint('Error inserting project: $e');
       return false;
     }
   }
@@ -905,7 +905,7 @@ class _CostEstimationScreenState extends State<CostEstimationScreen> with Single
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text('تعرفه مصوب پایه استعلام:'),
-                  Text(_isLoadingTariff ? 'در حال استعلام...' : '\\\${formatCurrency(_fetchedBaseTariff ?? 0.0)} ریال'),
+                  Text(_isLoadingTariff ? 'در حال استعلام...' : '\${formatCurrency(_fetchedBaseTariff ?? 0.0)} ریال'),
                 ],
               ),
             ),
@@ -1057,31 +1057,122 @@ class PricingDashboardScreen extends StatelessWidget {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Card(
-              color: Colors.orange.shade50,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  border: Border.all(color: Colors.grey.shade200),
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: Column(
                   children: [
-                    const Text('قیمت کارشناسی نهایی تمام شده مصوب (ریال):', style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    Text(formatCurrency(totalCalculatedCost), style: TextStyle(fontSize: 24, fontWeight: FontWeight.black, color: theme.colorScheme.secondary)),
+                    const Text('نام سرویس محاسباتی مرجع', style: TextStyle(fontSize: 10, color: Colors.grey, fontFamily: 'Vazirmatn')),
+                    const SizedBox(height: 4),
+                    Text(
+                      'بازه قیمتی خدمات $selectedSubBranch',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87, fontFamily: 'Vazirmatn'),
+                      textAlign: TextAlign.center,
+                    ),
                   ],
                 ),
               ),
-            ),
-            const Spacer(),
-            ElevatedButton(
-              onPressed: () async {
-                await onSaveProject();
-              }, 
-              style: ElevatedButton.styleFrom(backgroundColor: theme.primaryColor, foregroundColor: Colors.white),
-              child: const Text('ثبت نهایی پروژه در برآورد ژئو')
-            ),
-          ],
+              const SizedBox(height: 16),
+              Card(
+                color: Colors.emerald.shade50,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: Colors.emerald.shade200),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'پایین‌ترین برآورد قیمت',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.emerald, fontSize: 13, fontFamily: 'Vazirmatn'),
+                        textAlign: TextAlign.right,
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'حداقل تعرفه منطقی با هزینه پایه و کمترین میزان سود بالاسری',
+                        style: TextStyle(color: Colors.grey, fontSize: 10, fontFamily: 'Vazirmatn'),
+                        textAlign: TextAlign.right,
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('ریال ایران', style: TextStyle(color: Colors.grey, fontSize: 11, fontFamily: 'Vazirmatn')),
+                          Text(
+                            formatCurrency(totalCalculatedCost * 0.85),
+                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.black, color: Colors.emerald, fontFamily: 'Vazirmatn'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Card(
+                color: const Color(0xFF0B192C),
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: Colors.black),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'بالاترین برآورد قیمت',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFFF6600), fontSize: 13, fontFamily: 'Vazirmatn'),
+                        textAlign: TextAlign.right,
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'سقف تعرفه مصوب با حداکثر ضریب سختی و ریسک جغرافیایی',
+                        style: TextStyle(color: Colors.white70, fontSize: 10, fontFamily: 'Vazirmatn'),
+                        textAlign: TextAlign.right,
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('ریال ایران', style: TextStyle(color: Colors.white54, fontSize: 11, fontFamily: 'Vazirmatn')),
+                          Text(
+                            formatCurrency(totalCalculatedCost * 1.25),
+                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.black, color: Color(0xFFFF6600), fontFamily: 'Vazirmatn'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              ElevatedButton(
+                onPressed: () async {
+                  await onSaveProject();
+                }, 
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.primaryColor, 
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('ثبت نهایی پروژه در برآورد ژئو', style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Vazirmatn'))
+              ),
+            ],
+          ),
         ),
       ),
     );
