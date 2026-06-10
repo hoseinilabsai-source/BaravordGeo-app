@@ -2,10 +2,8 @@ import { useState, useEffect } from 'react';
 import { 
   Phone as PhoneIcon, 
   User, 
-  MapPin, 
   Briefcase, 
   ShieldCheck, 
-  Lock, 
   Smartphone, 
   Building2, 
   CheckCircle2, 
@@ -18,14 +16,12 @@ import {
   Copy, 
   Check, 
   ArrowLeft, 
-  AlertTriangle, 
   Coins, 
   Percent, 
   Scale, 
   HelpCircle as InfoIcon,
   RotateCcw,
   Sparkles,
-  ChevronLeft,
   Settings
 } from 'lucide-react';
 import { DART_MAIN_CODE } from './src/dartCode';
@@ -196,7 +192,6 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'simulator' | 'code'>('simulator');
   
-  const [unlocked, setUnlocked] = useState(false);
   const [flowScreen, setFlowScreen] = useState<'auth' | 'estimation' | 'dashboard'>('auth');
   const [simulatedToast, setSimulatedToast] = useState<string | null>(null);
   const [showSupportSheet, setShowSupportSheet] = useState(false);
