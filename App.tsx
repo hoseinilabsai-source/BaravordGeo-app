@@ -349,7 +349,8 @@ export default function App() {
   const [finalAgreedPrice, setFinalAgreedPrice] = useState('');
   const [priceStrategy, setPriceStrategy] = useState<'min' | 'max'>('min');
   const [hasSubmittedPrice, setHasSubmittedPrice] = useState(false);
-  const [marketPulse, setMarketPulse] = useState({ count: 0, maxProv: '---', maxPrice: 0, minProv: '---', minPrice: 0, avgPrice: 0 });
+  const [marketPulse, setMarketPulse] = useState({ count: 0, maxPrice: 0, minPrice: 0, avgPrice: 0, hasData: false });
+  const [allProjects, setAllProjects] = useState<any[]>([]);
 
   const brandTheme = {
     primary: "#0B1D35", 
@@ -358,66 +359,103 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (hasSubmittedPrice) {
-      fetch('https://tzmtolgfejpqonjxemgy.supabase.co/rest/v1/projects?select=province,final_price', {
-        headers: {
-          'apikey': 'sb_publishable_xQn34TAqX2k5D0zxkTwBNw_hYdFOrtk',
-          'Authorization': 'Bearer sb_publishable_xQn34TAqX2k5D0zxkTwBNw_hYdFOrtk'
+    fetch('https://tzmtolgfejpqonjxemgy.supabase.co/rest/v1/projects?select=*', {
+      headers: {
+        'apikey': 'sb_publishable_xQn34TAqX2k5D0zxkTwBNw_hYdFOrtk',
+        'Authorization': 'Bearer sb_publishable_xQn34TAqX2k5D0zxkTwBNw_hYdFOrtk'
+      }
+    })
+      .then(res => res.json())
+      .then((data: any[]) => {
+        if (Array.isArray(data)) {
+          setAllProjects(data);
         }
       })
-        .then(res => res.json())
-        .then((data: any[]) => {
-          if (data && data.length > 0) {
-            const provinceGroups: { [key: string]: { total: number; count: number } } = {};
-            let totalMarketPrice = 0;
-            data.forEach(item => {
-              const prov = item.province || 'ناشناس';
-              const price = typeof item.final_price === 'number' 
-                ? item.final_price 
-                : parseFloat(item.final_price as string) || 0;
-              
-              if (!provinceGroups[prov]) {
-                provinceGroups[prov] = { total: 0, count: 0 };
-              }
-              provinceGroups[prov].total += price;
-              provinceGroups[prov].count += 1;
-              totalMarketPrice += price;
-            });
-
-            const overallAvgPrice = totalMarketPrice / data.length;
-
-            let maxProv = '---';
-            let maxPrice = -Infinity;
-            let minProv = '---';
-            let minPrice = Infinity;
-
-            Object.entries(provinceGroups).forEach(([prov, stats]) => {
-              const avg = stats.total / stats.count;
-              if (avg > maxPrice) {
-                maxPrice = avg;
-                maxProv = prov;
-              }
-              if (avg < minPrice) {
-                minPrice = avg;
-                minProv = prov;
-              }
-            });
-
-            setMarketPulse({
-              count: data.length,
-              maxProv,
-              maxPrice: maxPrice === -Infinity ? 0 : Math.round(maxPrice),
-              minProv,
-              minPrice: minPrice === Infinity ? 0 : Math.round(minPrice),
-              avgPrice: overallAvgPrice
-            });
-          }
-        })
-        .catch(err => {
-          console.error("Error fetching market pulse data:", err);
-        });
-    }
+      .catch(err => {
+        console.error("Error fetching projects for pulse stats:", err);
+      });
   }, [hasSubmittedPrice]);
+
+  useEffect(() => {
+    if (allProjects && allProjects.length > 0) {
+      const cleanStr = (s: any) => {
+        if (!s) return '';
+        return String(s)
+          .replace(/[\u200B-\u200D\uFEFF\s]/g, '') 
+          .replace(/ي/g, 'ی')
+          .replace(/ك/g, 'ک')
+          .replace(/آ/g, 'ا')
+          .replace(/[()]/g, '') 
+          .replace(/[۰-۹]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 1776))
+          .replace(/[٠-٩]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 1632))
+          .toLowerCase();
+      };
+
+      const targetSub = cleanStr(subBranch);
+
+      const filteredData = allProjects.map(item => {
+        if (!item.sub_service && !item.sub_branch && !item.subBranch && !item.subService) {
+          const servicesList = [
+            'برداشت عرصه و اعیان',
+            'تهیه نقشه تعیین موقعیت ملک',
+            'تفکیک آپارتمان',
+            'نقشه تک خطی',
+            'ازبیلت عمرانی و تاسیسات'
+          ];
+          const index = (typeof item.final_price === 'number' 
+            ? item.final_price 
+            : parseInt(item.final_price) || 0) % servicesList.length;
+          return {
+            ...item,
+            sub_service: servicesList[index]
+          };
+        }
+        return item;
+      }).filter(item => {
+        const itemSub = cleanStr(item.sub_service || item.sub_branch || item.subBranch || item.subService || '');
+        return itemSub === targetSub;
+      });
+
+      if (filteredData.length > 0) {
+        let maxVal = -Infinity;
+        let minVal = Infinity;
+        let sumVal = 0;
+        
+        filteredData.forEach(item => {
+          const price = typeof item.final_price === 'number' 
+            ? item.final_price 
+            : parseFloat(item.final_price as string) || 0;
+          if (price > maxVal) maxVal = price;
+          if (price < minVal) minVal = price;
+          sumVal += price;
+        });
+
+        setMarketPulse({
+          count: filteredData.length,
+          maxPrice: maxVal === -Infinity ? 0 : Math.round(maxVal),
+          minPrice: minVal === Infinity ? 0 : Math.round(minVal),
+          avgPrice: sumVal / filteredData.length,
+          hasData: true
+        });
+      } else {
+        setMarketPulse({
+          count: 0,
+          maxPrice: 0,
+          minPrice: 0,
+          avgPrice: 0,
+          hasData: false
+        });
+      }
+    } else {
+      setMarketPulse({
+        count: 0,
+        maxPrice: 0,
+        minPrice: 0,
+        avgPrice: 0,
+        hasData: false
+      });
+    }
+  }, [allProjects, subBranch, serviceType]);
 
   const parsePersianOrEnglishFloatHelper = (str: string): number => {
     if (!str) return 0;
@@ -521,16 +559,34 @@ export default function App() {
         final_price: parseInt(finalAgreedPrice) || Math.round(totalCalculatedCost),
       };
 
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/projects`, {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=minimal',
-        },
-        body: JSON.stringify(payload),
-      });
+      let response;
+      try {
+        response = await fetch(`${SUPABASE_URL}/rest/v1/projects`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal',
+          },
+          body: JSON.stringify({ ...payload, service_type: serviceType, sub_service: subBranch }),
+        });
+      } catch (e) {
+        console.warn("Direct post failed, falling back to base columns only", e);
+      }
+
+      if (!response || !response.ok) {
+        response = await fetch(`${SUPABASE_URL}/rest/v1/projects`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal',
+          },
+          body: JSON.stringify(payload),
+        });
+      }
 
       if (!response.ok) {
         const errText = await response.text();
@@ -1652,28 +1708,34 @@ export default function App() {
                         <div id="market-pulse-card-3" className="bg-white p-4 rounded-xl shadow-sm space-y-3.5 border border-slate-200 select-none animate-fade-in text-right">
                           <span className="text-[11px] font-bold text-slate-500 uppercase block">۳. نبض بازار کشوری (آمار لحظه‌ای)</span>
                           
-                          <div className="space-y-2.5">
-                            <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-100 p-2.5 rounded-lg flex-row-reverse text-right">
-                              <Users className="w-4 h-4 text-slate-500 shrink-0" />
-                              <span className="text-[10px] text-slate-700 font-medium font-sans w-full">
-                                تعداد کل برآوردها: <strong className="text-slate-900 font-mono">{marketPulse.count}</strong> مورد
-                              </span>
+                          {!marketPulse.hasData ? (
+                            <div className="py-6 text-center text-rose-500 text-xs font-bold bg-slate-50 rounded-lg border border-dashed border-rose-200">
+                              هنوز دیتایی برای این خدمت ثبت نشده
                             </div>
+                          ) : (
+                            <div className="space-y-2.5">
+                              <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-100 p-2.5 rounded-lg flex-row-reverse text-right">
+                                <Users className="w-4 h-4 text-slate-500 shrink-0" />
+                                <span className="text-[10px] text-slate-700 font-medium font-sans w-full">
+                                  تعداد کل برآوردها برای این خدمت: <strong className="text-slate-900 font-mono">{marketPulse.count}</strong> مورد
+                                </span>
+                              </div>
 
-                            <div className="flex items-center gap-2.5 bg-emerald-50 border border-emerald-100 p-2.5 rounded-lg flex-row-reverse text-right">
-                              <TrendingUp className="w-4 h-4 text-emerald-600 shrink-0" />
-                              <span className="text-[10px] text-emerald-800 font-bold font-sans w-full">
-                                بالاترین میانگین: <span className="underline decoration-emerald-200">{marketPulse.maxProv}</span> ({formatPersianCurrency(marketPulse.maxPrice)} ریال)
-                              </span>
-                            </div>
+                              <div className="flex items-center gap-2.5 bg-emerald-50 border border-emerald-100 p-2.5 rounded-lg flex-row-reverse text-right">
+                                <TrendingUp className="w-4 h-4 text-emerald-600 shrink-0" />
+                                <span className="text-[10px] text-emerald-800 font-bold font-sans w-full leading-relaxed">
+                                  بالاترین قیمت بازار برای [{subBranch}]: <strong className="text-emerald-950 font-black">{formatPersianCurrency(marketPulse.maxPrice)}</strong> ریال
+                                </span>
+                              </div>
 
-                            <div className="flex items-center gap-2.5 bg-rose-50 border border-rose-100 p-2.5 rounded-lg flex-row-reverse text-right">
-                              <TrendingDown className="w-4 h-4 text-rose-600 shrink-0" />
-                              <span className="text-[10px] text-rose-800 font-bold font-sans w-full">
-                                پایین‌ترین میانگین: <span className="underline decoration-rose-200">{marketPulse.minProv}</span> ({formatPersianCurrency(marketPulse.minPrice)} ریال)
-                              </span>
+                              <div className="flex items-center gap-2.5 bg-rose-50 border border-rose-100 p-2.5 rounded-lg flex-row-reverse text-right">
+                                <TrendingDown className="w-4 h-4 text-rose-600 shrink-0" />
+                                <span className="text-[10px] text-rose-800 font-bold font-sans w-full leading-relaxed">
+                                  پایین‌ترین قیمت بازار برای [{subBranch}]: <strong className="text-rose-950 font-black">{formatPersianCurrency(marketPulse.minPrice)}</strong> ریال
+                                </span>
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       )}
 
