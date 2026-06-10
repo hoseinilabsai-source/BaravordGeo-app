@@ -1,3 +1,4 @@
+// Force Update: Network Fix
 export const DART_MAIN_CODE = `import 'package:flutter/material';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
@@ -67,7 +68,7 @@ class _AppMainNavigationState extends State<AppMainNavigation> with WidgetsBindi
   double _overheadProfitPct = 15.0;
   double _legalDeductionsPct = 10.0;
 
-  // State variables for projects table
+  // New state variables for projects table
   String _phone = '';
   String _surveyorName = '';
   String _city = '';
@@ -556,7 +557,7 @@ class TariffApiService {
     if (tariffDatabase.containsKey(organization) && tariffDatabase[organization]!.containsKey(subBranch)) {
       return tariffDatabase[organization]![subBranch];
     }
-    if (tariffDatabase[' सारे'] != null && tariffDatabase['همه']!.containsKey(subBranch)) {
+    if (tariffDatabase['همه']!.containsKey(subBranch)) {
       return tariffDatabase['همه']![subBranch];
     }
     return null;
@@ -811,8 +812,8 @@ class _CostEstimationScreenState extends State<CostEstimationScreen> with Single
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                   Text('تعرفه مصوب پایه استعلام:'),
-                   Text(_isLoadingTariff ? 'در حال استعلام...' : '\\\${formatCurrency(_fetchedBaseTariff ?? 0.0)} ریال'),
+                  const Text('تعرفه مصوب پایه استعلام:'),
+                  Text(_isLoadingTariff ? 'در حال استعلام...' : '\\\${formatCurrency(_fetchedBaseTariff ?? 0.0)} ریال'),
                 ],
               ),
             ),
