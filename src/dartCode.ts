@@ -1,4 +1,4 @@
-// Force Update: Network Fix
+// Force Update: Professional Exit System
 export const DART_MAIN_CODE = `import 'package:flutter/material';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
@@ -68,7 +68,7 @@ class _AppMainNavigationState extends State<AppMainNavigation> with WidgetsBindi
   double _overheadProfitPct = 15.0;
   double _legalDeductionsPct = 10.0;
 
-  // New state variables for projects table
+  // State variables for projects table
   String _phone = '';
   String _surveyorName = '';
   String _city = '';
@@ -96,6 +96,29 @@ class _AppMainNavigationState extends State<AppMainNavigation> with WidgetsBindi
         _currentScreen = FlowScreen.auth;
       });
     }
+  }
+
+  void _handleLogout() {
+    setState(() {
+      _phone = '';
+      _surveyorName = '';
+      _city = '';
+      _experienceYears = 8;
+      _entityType = 'حقیقی';
+      _hasLicense = true;
+      _isOfficialExpert = false;
+      _totalCalculatedCost = 0.0;
+      _predictedDays = 1;
+      _selectedVolume = 1.0;
+      _selectedSubBranch = 'برداشت عرصه و اعیان';
+      _fetchedBaseTariffFromApi = 3500000.0;
+      _selectedProvince = 'یزد';
+      _selectedOrganization = 'همه';
+      _hardnessMultiplier = 1.2;
+      _overheadProfitPct = 15.0;
+      _legalDeductionsPct = 10.0;
+      _currentScreen = FlowScreen.auth;
+    });
   }
 
   void _navigateToScreen(FlowScreen screen, {
@@ -143,23 +166,31 @@ class _AppMainNavigationState extends State<AppMainNavigation> with WidgetsBindi
           _navigateToScreen(FlowScreen.costEstimation);
         });
       case FlowScreen.costEstimation:
-        return CostEstimationScreen(onCalculate: (cost, days, volume, subBranch, baseTariff, province, organization, hardness, overhead, deduction) {
-          _navigateToScreen(
-            FlowScreen.pricingDashboard,
-            calculatedCost: cost,
-            days: days,
-            volume: volume,
-            subBranch: subBranch,
-            baseTariff: baseTariff,
-            province: province,
-            organization: organization,
-            hardnessMultiplier: hardness,
-            overheadProfitPct: overhead,
-            legalDeductionsPct: deduction,
-          );
-        });
+        return CostEstimationScreen(
+          surveyorName: _surveyorName,
+          surveyorPhone: _phone,
+          onLogout: _handleLogout,
+          onCalculate: (cost, days, volume, subBranch, baseTariff, province, organization, hardness, overhead, deduction) {
+            _navigateToScreen(
+              FlowScreen.pricingDashboard,
+              calculatedCost: cost,
+              days: days,
+              volume: volume,
+              subBranch: subBranch,
+              baseTariff: baseTariff,
+              province: province,
+              organization: organization,
+              hardnessMultiplier: hardness,
+              overheadProfitPct: overhead,
+              legalDeductionsPct: deduction,
+            );
+          },
+        );
       case FlowScreen.pricingDashboard:
         return PricingDashboardScreen(
+          surveyorName: _surveyorName,
+          surveyorPhone: _phone,
+          onLogout: _handleLogout,
           totalCalculatedCost: _totalCalculatedCost,
           predictedDays: _predictedDays,
           selectedVolume: _selectedVolume,
@@ -267,7 +298,7 @@ String getUnitOfMeasurement(String sub) {
     'برداشت مسطحاتی و توپوگرافی عوارض معدنی': 'هکتار (زیر یک هکتار)',
     'برداشت نما ساختمان': 'متر مربع',
   };
-  return units[sub] || 'انتخاب نشده';
+  return units[sub] ?? 'انتخاب نشده';
 }
 
 String formatCurrency(double amount) {
@@ -607,11 +638,21 @@ class TariffApiService {
 }
 
 class CostEstimationScreen extends StatefulWidget {
+  final String surveyorName;
+  final String surveyorPhone;
+  final VoidCallback onLogout;
   final Function(
     double totalCost, int days, double volume, String subBranch, double baseTariff,
     String province, String organization, double hardnessMultiplier, double overheadProfitPct, double legalDeductionsPct,
   ) onCalculate;
-  const CostEstimationScreen({Key? key, required this.onCalculate}) : super(key: key);
+
+  const CostEstimationScreen({
+    Key? key,
+    required this.surveyorName,
+    required this.surveyorPhone,
+    required this.onLogout,
+    required this.onCalculate,
+  }) : super(key: key);
 
   @override
   State<CostEstimationScreen> createState() => _CostEstimationScreenState();
@@ -721,7 +762,58 @@ class _CostEstimationScreenState extends State<CostEstimationScreen> with Single
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(title: const Text('برآورد ژئو - تخمین هوشمند', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), backgroundColor: theme.primaryColor, centerTitle: true),
+      appBar: AppBar(
+        title: const Text('برآورد ژئو - تخمین هوشمند', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), 
+        backgroundColor: theme.primaryColor, 
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.exit_to_app, color: Colors.white),
+            tooltip: 'خروج سریع',
+            onPressed: widget.onLogout,
+          ),
+        ],
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            UserAccountsDrawerHeader(
+              decoration: const BoxDecoration(
+                color: Color(0xFF0B192C),
+              ),
+              accountName: Text(
+                widget.surveyorName.isNotEmpty ? widget.surveyorName : 'نقشه‌بردار مهمان',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, fontFamily: 'Vazirmatn', color: Colors.white),
+              ),
+              accountEmail: Text(
+                widget.surveyorPhone.isNotEmpty ? widget.surveyorPhone : 'بدون شماره همراه',
+                style: const TextStyle(fontSize: 14, fontFamily: 'Vazirmatn', color: Colors.white70),
+              ),
+              currentAccountPicture: const CircleAvatar(
+                backgroundColor: Color(0xFFFF6600),
+                child: Icon(Icons.person, color: Colors.white, size: 40),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.home, color: Color(0xFF0B192C)),
+              title: const Text('صفحه اصلی تخمین', style: TextStyle(fontFamily: 'Vazirmatn', fontWeight: FontWeight.w500)),
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.redAccent),
+              title: const Text('خروج از حساب', style: TextStyle(fontFamily: 'Vazirmatn', color: Colors.redAccent, fontWeight: FontWeight.bold)),
+              onTap: () {
+                Navigator.pop(context);
+                widget.onLogout();
+              },
+            ),
+          ],
+        ),
+      ),
       body: Column(
         children: [
           Container(
@@ -874,6 +966,9 @@ class _CostEstimationScreenState extends State<CostEstimationScreen> with Single
 }
 
 class PricingDashboardScreen extends StatelessWidget {
+  final String surveyorName;
+  final String surveyorPhone;
+  final VoidCallback onLogout;
   final double totalCalculatedCost;
   final int predictedDays;
   final double selectedVolume;
@@ -888,16 +983,78 @@ class PricingDashboardScreen extends StatelessWidget {
   final Future<void> Function() onSaveProject;
 
   const PricingDashboardScreen({
-    Key? key, required this.totalCalculatedCost, required this.predictedDays, required this.selectedVolume, required this.selectedSubBranch,
-    required this.baseTariffFromApi, required this.selectedProvince, required this.selectedOrganization, required this.hardnessMultiplier,
-    required this.overheadProfitPct, required this.legalDeductionsPct, required this.onSaveProject,
+    Key? key,
+    required this.surveyorName,
+    required this.surveyorPhone,
+    required this.onLogout,
+    required this.totalCalculatedCost,
+    required this.predictedDays,
+    required this.selectedVolume,
+    required this.selectedSubBranch,
+    required this.baseTariffFromApi,
+    required this.selectedProvince,
+    required this.selectedOrganization,
+    required this.hardnessMultiplier,
+    required this.overheadProfitPct,
+    required this.legalDeductionsPct,
+    required this.onSaveProject,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('برآورد ژئو - داشبورد نهایی', style: TextStyle(color: Colors.white)), backgroundColor: theme.primaryColor),
+      appBar: AppBar(
+        title: const Text('برآورد ژئو - داشبورد نهایی', style: TextStyle(color: Colors.white)), 
+        backgroundColor: theme.primaryColor,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.exit_to_app, color: Colors.white),
+            tooltip: 'خروج سریع',
+            onPressed: onLogout,
+          ),
+        ],
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            UserAccountsDrawerHeader(
+              decoration: const BoxDecoration(
+                color: Color(0xFF0B192C),
+              ),
+              accountName: Text(
+                surveyorName.isNotEmpty ? surveyorName : 'نقشه‌بردار مهمان',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, fontFamily: 'Vazirmatn', color: Colors.white),
+              ),
+              accountEmail: Text(
+                surveyorPhone.isNotEmpty ? surveyorPhone : 'بدون شماره همراه',
+                style: const TextStyle(fontSize: 14, fontFamily: 'Vazirmatn', color: Colors.white70),
+              ),
+              currentAccountPicture: const CircleAvatar(
+                backgroundColor: Color(0xFFFF6600),
+                child: Icon(Icons.person, color: Colors.white, size: 40),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.dashboard, color: Color(0xFF0B192C)),
+              title: const Text('داشبورد محاسبات نهایی', style: TextStyle(fontFamily: 'Vazirmatn', fontWeight: FontWeight.w500)),
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.redAccent),
+              title: const Text('خروج از حساب', style: TextStyle(fontFamily: 'Vazirmatn', color: Colors.redAccent, fontWeight: FontWeight.bold)),
+              onTap: () {
+                Navigator.pop(context);
+                onLogout();
+              },
+            ),
+          ],
+        ),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
