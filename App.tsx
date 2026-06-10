@@ -1,8 +1,6 @@
-// Force update for Vercel build
 import { useState, useEffect } from 'react';
 import { 
   Phone as PhoneIcon, 
-  User, 
   Briefcase, 
   ShieldCheck, 
   Smartphone, 
@@ -70,10 +68,6 @@ const surveyingServices: Record<string, Record<string, string[]>> = {
 
 function formatPersianCurrency(num: number): string {
   return Math.round(num).toLocaleString('fa-IR');
-}
-
-function formatEnglishCurrency(num: number): string {
-  return Math.round(num).toLocaleString('en-US');
 }
 
 function getUnitForSubservice(sub: string): string {
@@ -330,8 +324,8 @@ export default function App() {
   const [gpsCount, setGpsCount] = useState(1);
   const [scannerCount, setScannerCount] = useState(1);
   const [officeCount, setOfficeCount] = useState(1);
-  const [logisticsCount, setLogisticsCount] = useState(1);
-  const [feedingCount, setFeedingCount] = useState(1);
+  const [logisticsCount] = useState(1);
+  const [feedingCount] = useState(1);
 
   const [supervisorPrice, setSupervisorPrice] = useState(50000000);
   const [assistantPrice, setAssistantPrice] = useState(25000000);
