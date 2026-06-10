@@ -53,7 +53,7 @@ class AppMainNavigation extends StatefulWidget {
   State<AppMainNavigation> createState() => _AppMainNavigationState();
 }
 
-class _AppMainNavigationState extends State<AppMainNavigation> {
+class _AppMainNavigationState extends State<AppMainNavigation> with WidgetsBindingObserver {
   FlowScreen _currentScreen = FlowScreen.auth;
 
   double _totalCalculatedCost = 0.0;
@@ -67,7 +67,7 @@ class _AppMainNavigationState extends State<AppMainNavigation> {
   double _overheadProfitPct = 15.0;
   double _legalDeductionsPct = 10.0;
 
-  // New state variables for projects table
+  // State variables for projects table
   String _phone = '';
   String _surveyorName = '';
   String _city = '';
@@ -75,6 +75,27 @@ class _AppMainNavigationState extends State<AppMainNavigation> {
   String _entityType = 'حقیقی';
   bool _hasLicense = true;
   bool _isOfficialExpert = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+      setState(() {
+        _currentScreen = FlowScreen.auth;
+      });
+    }
+  }
 
   void _navigateToScreen(FlowScreen screen, {
     double calculatedCost = 0.0,
@@ -535,7 +556,7 @@ class TariffApiService {
     if (tariffDatabase.containsKey(organization) && tariffDatabase[organization]!.containsKey(subBranch)) {
       return tariffDatabase[organization]![subBranch];
     }
-    if (tariffDatabase['همه']!.containsKey(subBranch)) {
+    if (tariffDatabase[' सारे'] != null && tariffDatabase['همه']!.containsKey(subBranch)) {
       return tariffDatabase['همه']![subBranch];
     }
     return null;
@@ -790,8 +811,8 @@ class _CostEstimationScreenState extends State<CostEstimationScreen> with Single
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('تعرفه مصوب پایه استعلام:'),
-                  Text(_isLoadingTariff ? 'در حال استعلام...' : '\\\${formatCurrency(_fetchedBaseTariff ?? 0.0)} ریال'),
+                   Text('تعرفه مصوب پایه استعلام:'),
+                   Text(_isLoadingTariff ? 'در حال استعلام...' : '\\\${formatCurrency(_fetchedBaseTariff ?? 0.0)} ریال'),
                 ],
               ),
             ),
