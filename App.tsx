@@ -1,3 +1,4 @@
+// Force update for Vercel build
 import { useState, useEffect } from 'react';
 import { 
   Phone as PhoneIcon, 
