@@ -392,6 +392,7 @@ export default function App() {
       };
 
       const targetSub = cleanStr(subBranch);
+      const targetProv = cleanStr(province);
 
       const filteredData = allProjects.map(item => {
         if (!item.sub_service && !item.sub_branch && !item.subBranch && !item.subService) {
@@ -413,7 +414,9 @@ export default function App() {
         return item;
       }).filter(item => {
         const itemSub = cleanStr(item.sub_service || item.sub_branch || item.subBranch || item.subService || '');
-        return itemSub === targetSub;
+        const itemProv = cleanStr(item.province || '');
+        // Filter by subBranch, and also matches province (if specified, or fallback to general)
+        return itemSub === targetSub && (!itemProv || itemProv === targetProv || targetProv === 'همه');
       });
 
       if (filteredData.length > 0) {
@@ -455,7 +458,7 @@ export default function App() {
         hasData: false
       });
     }
-  }, [allProjects, subBranch, serviceType]);
+  }, [allProjects, subBranch, serviceType, province]);
 
   const parsePersianOrEnglishFloatHelper = (str: string): number => {
     if (!str) return 0;
@@ -1659,93 +1662,130 @@ export default function App() {
                       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
                         <span className="text-[10px] font-bold text-slate-400 block mb-0.5">نام سرویس محاسباتی مرجع</span>
                         <h3 className="text-xs font-bold text-slate-900 leading-normal">
-                          بازه قیمتی خدمات {subBranch}
+                          داشبورد نهایی بها: {subBranch}
                         </h3>
                       </div>
 
-                      {/* Card 1: Lowest estimate (green/blue) */}
-                      <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-300 p-5 rounded-2xl shadow-sm text-right relative overflow-hidden">
-                        <div className="absolute left-3 top-3 opacity-15 rotate-12">
-                          <TrendingDown className="w-12 h-12 text-emerald-600" />
+                      {/* ۱. کارت اول (هزینه تمامشده و سود اختصاصی شما) */}
+                      <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-200 p-4.5 rounded-2xl shadow-sm text-right relative overflow-hidden">
+                        <div className="absolute left-3 top-3 opacity-15 rotate-12 text-indigo-900">
+                          <Calculator className="w-12 h-12" />
                         </div>
-                        <span className="text-xs font-bold text-emerald-800 tracking-wide block mb-1">پایین‌ترین برآورد قیمت</span>
-                        <p className="text-[10px] text-slate-500 mb-3 leading-relaxed">حداقل تعرفه منطقی با هزینه پایه و کمترین میزان سود بالاسری</p>
+                        <span className="text-xs font-bold text-indigo-900 tracking-wide block mb-1">
+                          ۱. هزینه تمام‌شده و سود اختصاصی شما (طرح شخصی)
+                        </span>
+                        <p className="text-[10.5px] text-slate-500 mb-3 leading-relaxed">
+                          بر مبنای محاسبه واقعی پرسنلی، استهلاک تجهیزات فعال، تدارکات و ایاب‌و‌ذهاب با ضریب سختی و سود بالاسری شما
+                        </p>
                         <div className="flex justify-between items-baseline flex-row-reverse">
-                          <span className="text-2xl font-mono font-black text-emerald-700">{formatPersianCurrency(minPrice || Math.round(totalCalculatedCost * 0.85))}</span>
-                          <span className="text-xs font-bold text-slate-400">ریال ایران</span>
+                          <span className="text-2xl font-mono font-black text-indigo-950">
+                            {formatPersianCurrency(totalCalculatedCost)}
+                          </span>
+                          <span className="text-xs font-bold text-slate-500">ریال</span>
                         </div>
                       </div>
 
-                      {/* Card 2: Highest estimate (navy/orange) */}
-                      <div className="bg-gradient-to-br from-[#0B1D35] to-[#142d50] border border-slate-800 p-5 rounded-2xl shadow-md text-right relative overflow-hidden text-white">
-                        <div className="absolute left-3 top-3 opacity-20 rotate-12">
-                          <TrendingUp className="w-12 h-12 text-[#C5A059]" />
+                      {/* ۲. کارت دوم (تعرفه مصوب پایه) */}
+                      <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 p-4.5 rounded-2xl shadow-sm text-right relative overflow-hidden">
+                        <div className="absolute left-3 top-3 opacity-15 rotate-12 text-blue-900">
+                          <Building2 className="w-12 h-12" />
                         </div>
-                        <span className="text-xs font-bold tracking-wide block mb-1" style={{ color: brandTheme.accent }}>بالاترین برآورد قیمت</span>
-                        <p className="text-[10px] text-slate-300 opacity-85 mb-3 leading-relaxed">سقف تعرفه مصوب با حداکثر ضریب سختی و ریسک جغرافیایی</p>
+                        <span className="text-xs font-bold text-blue-900 tracking-wide block mb-1">
+                          ۲. تعرفه رسمی مصوب پایه (بدون اعمال ضریب)
+                        </span>
+                        <p className="text-[10.5px] text-slate-500 mb-3 leading-relaxed">
+                          نمایش رقم خام ارزش نقشه برداری پایه ابلاغی سازمان‌ها و شهرداری مجری بدون در نظر گرفتن سختی کار شخصی
+                        </p>
                         <div className="flex justify-between items-baseline flex-row-reverse">
-                          <span className="text-2xl font-mono font-black animate-pulse" style={{ color: brandTheme.accent }}>{formatPersianCurrency(maxPrice || Math.round(totalCalculatedCost * 1.25))}</span>
-                          <span className="text-xs font-bold text-slate-400 opacity-80">ریال ایران</span>
+                          {remoteBaseTariff !== null ? (
+                            <span className="text-2xl font-mono font-black text-blue-950">
+                              {formatPersianCurrency(remoteBaseTariff)}
+                            </span>
+                          ) : (
+                            <span className="text-xs font-bold text-rose-600">تعرفه مصوبی برای این صنف تعریف نشده است</span>
+                          )}
+                          <span className="text-xs font-bold text-slate-400">ریال</span>
                         </div>
+                      </div>
+
+                      {/* ۳. کارت سوم (پیشنهاد هوشمندانه سیستم) */}
+                      <div className="bg-gradient-to-br from-[#0B1D35] to-[#142d50] border border-slate-800 p-4.5 rounded-2xl shadow-md text-right relative overflow-hidden text-white">
+                        <div className="absolute left-3 top-3 opacity-20 rotate-12 text-emerald-400">
+                          <Sparkles className="w-12 h-12" />
+                        </div>
+                        <span className="text-xs font-bold tracking-wide block mb-1" style={{ color: brandTheme.accent }}>
+                          ۳. پیشنهاد هوشمندانه سیستم (تسطیح پویای صنف)
+                        </span>
+                        <p className="text-[10.5px] text-slate-300 opacity-90 mb-3 leading-relaxed">
+                          پیشنهاد تسطیح‌شده بر اساس میانگین وزنی بازار کشوری هدایت شده با حاشیه سود بالاسری صنف [{overheadProfitPct}%]
+                        </p>
+                        <div className="flex justify-between items-baseline flex-row-reverse">
+                          <span className="text-2xl font-mono font-black animate-pulse" style={{ color: brandTheme.accent }}>
+                            {formatPersianCurrency(
+                              marketPulse.hasData && marketPulse.avgPrice 
+                                ? Math.round(marketPulse.avgPrice * (1 + (overheadProfitPct / 100))) 
+                                : Math.round(totalCalculatedCost * 1.15)
+                            )}
+                          </span>
+                          <span className="text-xs font-bold text-slate-400">ریال</span>
+                        </div>
+                      </div>
+
+                      {/* ۴. کارت چهارم (نبض بازار استانی تفکیکشده) */}
+                      <div className="bg-gradient-to-br from-slate-50 to-amber-50/50 border border-slate-200 p-4.5 rounded-2xl shadow-sm text-right relative overflow-hidden">
+                        <div className="absolute left-3 top-3 opacity-15 rotate-12 text-amber-600">
+                          <TrendingUp className="w-12 h-12" />
+                        </div>
+                        <span className="text-xs font-bold text-slate-700 tracking-wide block mb-1">
+                          ۴. نبض بازار استانی تفکیک‌شده (ثبتی استان {province})
+                        </span>
+                        <p className="text-[10.5px] text-slate-500 mb-2 leading-relaxed">
+                          محدوده کمترین و بیشترین بهای ثبت‌شده برای خدمة <strong className="text-slate-800">{subBranch}</strong> در محدوده <strong className="text-slate-850">استان {province}</strong>
+                        </p>
+                        
+                        {!marketPulse.hasData ? (
+                          <div className="pt-2 text-center text-slate-500 text-[10.5px] font-bold bg-slate-50 rounded-lg border border-dashed border-slate-200 py-1.5">
+                            هنوز سابقه برآوردی در استان {province} ثبت نشده؛ هم‌اکنون اولین برآورد را به پایگاه صنف بفرستید!
+                          </div>
+                        ) : (
+                          <div className="space-y-1.5 pt-1.5 border-t border-slate-200/60">
+                            <div className="flex justify-between items-center text-[11px] text-emerald-800 flex-row-reverse">
+                              <span>بالاترین قیمت ثبت‌شده در استان {province}:</span>
+                              <span className="font-mono font-bold">{formatPersianCurrency(marketPulse.maxPrice)} ریال</span>
+                            </div>
+                            <div className="flex justify-between items-center text-[11px] text-amber-800 flex-row-reverse">
+                              <span>پایین‌ترین قیمت ثبت‌شده در استان {province}:</span>
+                              <span className="font-mono font-bold">{formatPersianCurrency(marketPulse.minPrice)} ریال</span>
+                            </div>
+                            <div className="text-[9.5px] text-slate-400 text-center pt-1 font-mono">
+                              برآورد شده از تحلیل میانگین تعداد {marketPulse.count} پروژه ثبت شده در نظام صنف استان
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {!hasSubmittedPrice && (
                         <button
                           id="submit-estimate-btn"
                           onClick={() => {
-                            showToast("برآورد نهایی شما ثبت و در داده‌های آماری جهت آنالیز استفاده خواهر شد");
+                            showToast("برآورد نهایی شما ثبت و در داده‌های آماری جهت آنالیز استفاده شد");
                             setHasSubmittedPrice(true);
                           }}
-                          className="w-full flex items-center justify-center gap-2 border-2 border-dashed font-bold py-3 px-4 rounded-xl transition-all text-xs cursor-pointer"
+                          className="w-full flex items-center justify-center gap-2 border-2 border-dashed font-bold py-3 px-4 rounded-xl transition-all text-xs cursor-pointer bg-white hover:bg-slate-50"
                           style={{ borderColor: brandTheme.accent, color: brandTheme.primary }}
                         >
                           <Users className="w-4 h-4 text-emerald-600" style={{ color: brandTheme.accent }} />
-                          ثبت برآورد من و مشاهده آمار کشوری
+                          ثبت نهایی برآورد من و به‌روزرسانی آمار صنف
                         </button>
-                      )}
-
-                      {hasSubmittedPrice && (
-                        <div id="market-pulse-card-3" className="bg-white p-4 rounded-xl shadow-sm space-y-3.5 border border-slate-200 select-none animate-fade-in text-right">
-                          <span className="text-[11px] font-bold text-slate-500 uppercase block">۳. نبض بازار کشوری (آمار لحظه‌ای)</span>
-                          
-                          {!marketPulse.hasData ? (
-                            <div className="py-6 text-center text-rose-500 text-xs font-bold bg-slate-50 rounded-lg border border-dashed border-rose-200">
-                              هنوز دیتایی برای این خدمت ثبت نشده
-                            </div>
-                          ) : (
-                            <div className="space-y-2.5">
-                              <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-100 p-2.5 rounded-lg flex-row-reverse text-right">
-                                <Users className="w-4 h-4 text-slate-500 shrink-0" />
-                                <span className="text-[10px] text-slate-700 font-medium font-sans w-full">
-                                  تعداد کل برآوردها برای این خدمت: <strong className="text-slate-900 font-mono">{marketPulse.count}</strong> مورد
-                                </span>
-                              </div>
-
-                              <div className="flex items-center gap-2.5 bg-emerald-50 border border-emerald-100 p-2.5 rounded-lg flex-row-reverse text-right">
-                                <TrendingUp className="w-4 h-4 text-emerald-600 shrink-0" />
-                                <span className="text-[10px] text-emerald-800 font-bold font-sans w-full leading-relaxed">
-                                  بالاترین قیمت بازار برای [{subBranch}]: <strong className="text-emerald-950 font-black">{formatPersianCurrency(marketPulse.maxPrice)}</strong> ریال
-                                </span>
-                              </div>
-
-                              <div className="flex items-center gap-2.5 bg-rose-50 border border-rose-100 p-2.5 rounded-lg flex-row-reverse text-right">
-                                <TrendingDown className="w-4 h-4 text-rose-600 shrink-0" />
-                                <span className="text-[10px] text-rose-800 font-bold font-sans w-full leading-relaxed">
-                                  پایین‌ترین قیمت بازار برای [{subBranch}]: <strong className="text-rose-950 font-black">{formatPersianCurrency(marketPulse.minPrice)}</strong> ریال
-                                </span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
                       )}
 
                       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3 select-none text-right">
                         <div className="flex items-center gap-1.5 flex-row-reverse" style={{ color: brandTheme.primary }}>
                           <Briefcase className="w-5 h-5 shrink-0" style={{ color: brandTheme.accent }} />
-                          <span className="text-xs font-bold" style={{ fontWeight: 'bold' }}>۴. انتخاب تعهد نهایی قرارداد پیش‌نویس</span>
+                          <span className="text-xs font-bold" style={{ fontWeight: 'bold' }}>تعهد نهایی قرارداد پیش‌نویس</span>
                         </div>
                         <p className="text-[10px] text-slate-500 leading-normal">
-                          یکی از دو استراتژی زیر را جهت نهایی‌سازی در لایحه قیمت انتخاب نمایید:
+                          یکی از دو استراتژی زیر را جهت نهایی‌سازی در لایحه قرارداد انتخاب نمایید:
                         </p>
                         
                         <div className="space-y-2 pt-1">
@@ -1770,7 +1810,7 @@ export default function App() {
                               />
                             </div>
                             <div className="flex items-baseline justify-between mt-1.5 font-mono">
-                              <span className="text-[9px] text-slate-400 font-sans">بر اساس حاقل سود مهندسی شانس بالا</span>
+                              <span className="text-[9px] text-slate-400 font-sans">بر اساس حداقل سود مهندسی شانس رقابت بالا</span>
                               <span className="text-sm font-black" style={{ color: priceStrategy === 'min' ? brandTheme.primary : '#1e293b' }}>
                                 {formatPersianCurrency(minPrice || Math.round(totalCalculatedCost * 0.85))} <span className="text-[10px] font-sans font-bold">ریال</span>
                               </span>
@@ -1798,7 +1838,7 @@ export default function App() {
                               />
                             </div>
                             <div className="flex items-baseline justify-between mt-1.5 font-mono">
-                              <span className="text-[9px] text-slate-400 font-sans">با احتساب کامل ریسک‌های مهندسی و نظارتی</span>
+                              <span className="text-[9px] text-slate-400 font-sans">با احتساب کامل ریسک‌های مهندسی و نظارتی بالا</span>
                               <span className="text-sm font-black" style={{ color: priceStrategy === 'max' ? brandTheme.primary : '#1e293b' }}>
                                 {formatPersianCurrency(maxPrice || Math.round(totalCalculatedCost * 1.25))} <span className="text-[10px] font-sans font-bold">ریال</span>
                               </span>
