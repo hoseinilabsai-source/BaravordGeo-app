@@ -185,6 +185,52 @@ function parsePriceString(val: string): number {
   return isNaN(parsed) ? 0 : parsed;
 }
 
+function cleanStr(s: any): string {
+  if (!s) return '';
+  return String(s)
+    .replace(/[\u200B-\u200D\uFEFF\s]/g, '') 
+    .replace(/ي/g, 'ی')
+    .replace(/ك/g, 'ک')
+    .replace(/آ/g, 'ا')
+    .replace(/[()]/g, '') 
+    .replace(/[۰-۹]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 1776))
+    .replace(/[٠-٩]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 1632))
+    .toLowerCase();
+}
+
+function getAvailableOrganizations(sub: string, tariffsList: any[]): string[] {
+  const orgsSet = new Set<string>();
+  orgsSet.add('همه');
+
+  const targetSubClean = cleanStr(sub);
+  const matchingRows = tariffsList.filter((row: any) => cleanStr(row.sub_service) === targetSubClean);
+  let hasSpecificOrg = false;
+
+  matchingRows.forEach((row: any) => {
+    if (row.organization && row.organization.trim() !== '' && cleanStr(row.organization) !== cleanStr('همه')) {
+      orgsSet.add(row.organization.trim());
+      hasSpecificOrg = true;
+    }
+  });
+
+  if (!hasSpecificOrg) {
+    const localDatabase: Record<string, Record<string, number>> = {
+      'همه': { 'برداشت عرصه و اعیان': 3500000, 'تهیه نقشه تعیین موقعیت ملک': 7600000, 'دفع آبهای سطحی': 35000000, 'نقشه تک خطی': 1500000, 'طراحی پروفیل طولی و عرضی': 2200000, 'پیاده سازی قطعات تفکیکی': 3000000, 'پیاده سازی طرح اجرایی': 4000000 },
+      'شهرداری یزد': { 'برداشت عوارض و مبلمان و تاسیسات شهری': 6000000, 'برداشت مسطحاتی و توپوگرافی معابر شهری جهت تفکیک': 18000000, 'برداشت توپوگرافی معابر شهری جهت کد گذاری': 15000000, 'تعیین بر و کف پلاک': 5000000, 'برداشت عوارض شهری': 7500000 },
+      'نظام مهندسی ساختمان یزد': { 'تفکیک آپارتمان': 4500000, 'ازبیلت عمرانی و تاسیسات': 8000000, 'برداشت پلاک جهت منطبق با طرح سازه': 6500000, 'آکس ستون و فنداسیون': 2500000, 'کنترل شاغولی ستون': 1800000, 'برداشت نما ساختمان': 9000000 },
+      'انجمن صنفی': { 'برداشت بلوک شهری تا عمق یک پلاک': 12000000, 'برداشت ترافیکی و المان های ترافیکی': 10000000, 'برداشت پلاک و معابر اطراف': 11000000, 'برداشت مسطحاتی و توپوگرافی عوارض معدنی': 14000000 }
+    };
+
+    Object.keys(localDatabase).forEach((org) => {
+      if (org !== 'همه' && localDatabase[org][sub] !== undefined) {
+        orgsSet.add(org);
+      }
+    });
+  }
+
+  return Array.from(orgsSet);
+}
+
 export default function App() {
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'simulator' | 'code'>('simulator');
@@ -217,11 +263,15 @@ export default function App() {
   const [isRemoteLoading, setIsRemoteLoading] = useState(false);
   const [remoteBaseTariff, setRemoteBaseTariff] = useState<number | null>(3500000);
 
+  const [tariffsList, setTariffsList] = useState<any[]>([]);
+  const [availableOrgs, setAvailableOrgs] = useState<string[]>(['همه']);
+
+  // Fetch all tariffs once on mount
   useEffect(() => {
     let active = true;
     setIsRemoteLoading(true);
 
-    const fetchLivePrice = async () => {
+    const fetchAllTariffs = async () => {
       try {
         const SUPABASE_URL = 'https://tzmtolgfejpqonjxemgy.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_xQn34TAqX2k5D0zxkTwBNw_hYdFOrtk';
@@ -239,74 +289,74 @@ export default function App() {
 
         if (response.ok) {
           const data = await response.json();
-          
           if (Array.isArray(data)) {
-            // فیلتر فوق‌هوشمند برای نادیده گرفتن تمام فاصله‌ها، پرانتزها و تفاوت اعداد
-            const cleanStr = (s: any) => {
-              if (!s) return '';
-              return String(s)
-                .replace(/[\u200B-\u200D\uFEFF\s]/g, '') 
-                .replace(/ي/g, 'ی')
-                .replace(/ك/g, 'ک')
-                .replace(/آ/g, 'ا')
-                .replace(/[()]/g, '') 
-                .replace(/[۰-۹]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 1776))
-                .replace(/[٠-٩]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 1632))
-                .toLowerCase();
-            };
-
-            const targetProvince = cleanStr(province);
-            const targetOrg = cleanStr(organization);
-            const targetSub = cleanStr(subBranch);
-
-            const match = data.find((row: any) => {
-              const rowProv = cleanStr(row.province);
-              const rowOrg = cleanStr(row.organization);
-              const rowSub = cleanStr(row.sub_service);
-
-              const provinceMatches = !rowProv || rowProv === targetProvince || rowProv === cleanStr('همه');
-              const subServiceMatches = rowSub === targetSub;
-              const orgMatches = targetOrg === cleanStr('همه') || rowOrg === targetOrg || rowOrg === cleanStr('همه');
-
-              return provinceMatches && subServiceMatches && orgMatches;
-            });
-
-            if (match && match.price != null) {
-              setRemoteBaseTariff(Number(match.price));
-            } else {
-              // استفاده از دیتابیس جایگزین در صورت پیدا نشدن دقیق در سرور
-              const localDatabase: Record<string, Record<string, number>> = {
-                'همه': { 'برداشت عرصه و اعیان': 3500000, 'تهیه نقشه تعیین موقعیت ملک': 7600000, 'دفع آبهای سطحی': 35000000, 'نقشه تک خطی': 1500000, 'طراحی پروفیل طولی و عرضی': 2200000, 'پیاده سازی قطعات تفکیکی': 3000000, 'پیاده سازی طرح اجرایی': 4000000 },
-                'شهرداری یزد': { 'برداشت عوارض و مبلمان و تاسیسات شهری': 6000000, 'برداشت مسطحاتی و توپوگرافی معابر شهری جهت تفکیک': 18000000, 'برداشت توپوگرافی معابر شهری جهت کد گذاری': 15000000, 'تعیین بر و کف پلاک': 5000000, 'برداشت عوارض شهری': 7500000 },
-                'نظام مهندسی ساختمان یزد': { 'تفکیک آپارتمان': 4500000, 'ازبیلت عمرانی و تاسیسات': 8000000, 'برداشت پلاک جهت منطبق با طرح سازه': 6500000, 'آکس ستون و فنداسیون': 2500000, 'کنترل شاغولی ستون': 1800000, 'برداشت نما ساختمان': 9000000 },
-                'انجمن صنفی': { 'برداشت بلوک شهری تا عمق یک پلاک': 12000000, 'برداشت ترافیکی و المان های ترافیکی': 10000000, 'برداشت پلاک و معابر اطراف': 11000000, 'برداشت مسطحاتی و توپوگرافی عوارض معدنی': 14000000 }
-              };
-              const orgKey = localDatabase[organization] ? organization : 'همه';
-              if (localDatabase[orgKey] && localDatabase[orgKey][subBranch] !== undefined) {
-                setRemoteBaseTariff(localDatabase[orgKey][subBranch]);
-              } else {
-                setRemoteBaseTariff(null);
-              }
-            }
-          } else {
-            setRemoteBaseTariff(null);
+            setTariffsList(data);
           }
-        } else {
-          setRemoteBaseTariff(null);
         }
       } catch (e) {
-        setRemoteBaseTariff(null);
+        console.error("Failed to load tariffs list", e);
       } finally {
         if (active) setIsRemoteLoading(false);
       }
     };
 
-    fetchLivePrice();
+    fetchAllTariffs();
 
     return () => {
       active = false;
     };
-  }, [subBranch, province, organization]);
+  }, []);
+
+  // Update available organizations and match the current base tariff whenever inputs change
+  useEffect(() => {
+    // 1. Calculate available organizations for this subBranch
+    const orgs = getAvailableOrganizations(subBranch, tariffsList);
+    setAvailableOrgs(orgs);
+
+    // 2. Auto-select: If the currently selected organization is not in the list,
+    // automatically set it to the first available organization of the new list.
+    let currentOrg = organization;
+    if (!orgs.includes(organization)) {
+      currentOrg = orgs[0] || 'همه';
+      setOrganization(currentOrg);
+    }
+
+    // 3. Match the current base tariff from the list
+    const targetProvince = cleanStr(province);
+    const targetOrg = cleanStr(currentOrg);
+    const targetSub = cleanStr(subBranch);
+
+    const match = tariffsList.find((row: any) => {
+      const rowProv = cleanStr(row.province);
+      const rowOrg = cleanStr(row.organization);
+      const rowSub = cleanStr(row.sub_service);
+
+      const provinceMatches = !rowProv || rowProv === targetProvince || rowProv === cleanStr('همه');
+      const subServiceMatches = rowSub === targetSub;
+      const orgMatches = targetOrg === cleanStr('همه') || rowOrg === targetOrg || rowOrg === cleanStr('همه');
+
+      return provinceMatches && subServiceMatches && orgMatches;
+    });
+
+    if (match && match.price != null) {
+      setRemoteBaseTariff(Number(match.price));
+    } else {
+      // Fallback database lookup
+      const localDatabase: Record<string, Record<string, number>> = {
+        'همه': { 'برداشت عرصه و اعیان': 3500000, 'تهیه نقشه تعیین موقعیت ملک': 7600000, 'دفع آبهای سطحی': 35000000, 'نقشه تک خطی': 1500000, 'طراحی پروفیل طولی و عرضی': 2200000, 'پیاده سازی قطعات تفکیکی': 3000000, 'پیاده سازی طرح اجرایی': 4000000 },
+        'شهرداری یزد': { 'برداشت عوارض و مبلمان و تاسیسات شهری': 6000000, 'برداشت مسطحاتی و توپوگرافی معابر شهری جهت تفکیک': 18000000, 'برداشت توپوگرافی معابر شهری جهت کد گذاری': 15000000, 'تعیین بر و کف پلاک': 5000000, 'برداشت عوارض شهری': 7500000 },
+        'نظام مهندسی ساختمان یزد': { 'تفکیک آپارتمان': 4500000, 'ازبیلت عمرانی و تاسیسات': 8000000, 'برداشت پلاک جهت منطبق با طرح سازه': 6500000, 'آکس ستون و فنداسیون': 2500000, 'کنترل شاغولی ستون': 1800000, 'برداشت نما ساختمان': 9000000 },
+        'انجمن صنفی': { 'برداشت بلوک شهری تا عمق یک پلاک': 12000000, 'برداشت ترافیکی و المان های ترافیکی': 10000000, 'برداشت پلاک و معابر اطراف': 11000000, 'برداشت مسطحاتی و توپوگرافی عوارض معدنی': 14000000 }
+      };
+
+      const orgKey = localDatabase[currentOrg] ? currentOrg : 'همه';
+      if (localDatabase[orgKey] && localDatabase[orgKey][subBranch] !== undefined) {
+        setRemoteBaseTariff(localDatabase[orgKey][subBranch]);
+      } else {
+        setRemoteBaseTariff(null);
+      }
+    }
+  }, [subBranch, province, organization, tariffsList]);
 
   const [volume, setVolume] = useState('۱۲');
   const [fieldDays, setFieldDays] = useState('۴');
@@ -1312,10 +1362,9 @@ export default function App() {
                                 onChange={(e) => setOrganization(e.target.value)}
                                 className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-900"
                               >
-                                <option value="همه">همه</option>
-                                <option value="شهرداری یزد">شهرداری یزد</option>
-                                <option value="نظام مهندسی ساختمان یزد">نظام مهندسی ساختمان یزد</option>
-                                <option value="انجمن صنفی">انجمن صنفی</option>
+                                {availableOrgs.map((org) => (
+                                  <option key={org} value={org}>{org}</option>
+                                ))}
                               </select>
                             </div>
 
