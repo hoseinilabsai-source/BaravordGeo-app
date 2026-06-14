@@ -100,77 +100,11 @@ function getUnitForSubservice(sub: string): string {
   return units[sub] || 'انتخاب نشده';
 }
 
-function calculateSmartTariff(basePrice: number, volume: number, unitString: string, subBranch: string = ""): number {
+function calculateSmartTariff(basePrice: number, volume: number, unitString: string, _subBranch: string = ""): number {
   if (unitString.includes("زیر یک")) {
     const effectiveVolume = Math.max(1.0, volume);
     return basePrice * effectiveVolume;
   }
-  
-  if (unitString.includes("قیمت ثابت") && !unitString.includes("به اضافه")) {
-    return basePrice;
-  }
-  
-  if (unitString.includes("قیمت ثابت به اضافه") || (unitString.includes("قیمت ثابت") && unitString.includes("به اضافه"))) {
-    let X = 200.0;
-    const match = /([0-9]+)\s+تا\s+([0-9]+)/.exec(unitString);
-    if (match) {
-      X = parseFloat(match[1]) || 200.0;
-    }
-    const extraVolume = Math.max(0.0, volume - X);
-    
-    let baseFixedPrice = basePrice;
-    let foundFixed = false;
-    
-    const tariffDatabase: Record<string, Record<string, number>> = {
-      'همه': {
-        'برداشت عرصه و اعیان': 3500000,
-        'تهیه نقشه تعیین موقعیت ملک': 7600000,
-        'دفع آبهای سطحی': 35000000,
-        'نقشه تک خطی': 1500000,
-        'طراحی پروفیل طولی و عرضی': 2200000,
-        'پیاده سازی قطعات تفکیکی': 3000000,
-        'پیاده سازی طرح اجرایی': 4000000,
-      },
-      'شهرداری یزد': {
-        'برداشت عوارض و مبلمان و تاسیسات شهری': 6000000,
-        'برداشت مسطحاتی و توپوگرافی معابر شهری جهت تفکیک': 18000000,
-        'برداشت توپوگرافی معابر شهری جهت کد گذاری': 15000000,
-        'تعیین بر و کف پلاک': 5000000,
-        'برداشت عوارض شهری': 7500000,
-      },
-      'نظام مهندسی ساختمان یزد': {
-        'تفکیک آپارتمان': 4500000,
-        'ازبیلت عمرانی و تاسیسات': 8000000,
-        'برداشت پلاک جهت منطبق با طرح سازه': 6500000,
-        'آکس ستون و فنداسیون': 2500000,
-        'کنترل شاغولی ستون': 1800000,
-        'برداشت نما ساختمان': 9000000,
-      },
-      'انجمن صنفی': {
-        'برداشت بلوک شهری تا عمق یک پلاک': 12000000,
-        'برداشت ترافیکی و المان های ترافیکی': 10000000,
-        'برداشت پلاک و معابر اطراف': 11000000,
-        'برداشت مسطحاتی و توپوگرافی عوارض معدنی': 14000000,
-      },
-    };
-
-    for (const org of Object.keys(tariffDatabase)) {
-      for (const sub of Object.keys(tariffDatabase[org])) {
-        if (sub === subBranch) {
-          const unit = getUnitForSubservice(sub);
-          if (unit.includes("قیمت ثابت") && !unit.includes("به اضافه")) {
-            baseFixedPrice = tariffDatabase[org][sub];
-            foundFixed = true;
-            break;
-          }
-        }
-      }
-      if (foundFixed) break;
-    }
-    
-    return baseFixedPrice + (extraVolume * basePrice);
-  }
-  
   return basePrice * volume;
 }
 
@@ -204,29 +138,12 @@ function getAvailableOrganizations(sub: string, tariffsList: any[]): string[] {
 
   const targetSubClean = cleanStr(sub);
   const matchingRows = tariffsList.filter((row: any) => cleanStr(row.sub_service) === targetSubClean);
-  let hasSpecificOrg = false;
 
   matchingRows.forEach((row: any) => {
     if (row.organization && row.organization.trim() !== '' && cleanStr(row.organization) !== cleanStr('همه')) {
       orgsSet.add(row.organization.trim());
-      hasSpecificOrg = true;
     }
   });
-
-  if (!hasSpecificOrg) {
-    const localDatabase: Record<string, Record<string, number>> = {
-      'همه': { 'برداشت عرصه و اعیان': 3500000, 'تهیه نقشه تعیین موقعیت ملک': 7600000, 'دفع آبهای سطحی': 35000000, 'نقشه تک خطی': 1500000, 'طراحی پروفیل طولی و عرضی': 2200000, 'پیاده سازی قطعات تفکیکی': 3000000, 'پیاده سازی طرح اجرایی': 4000000 },
-      'شهرداری یزد': { 'برداشت عوارض و مبلمان و تاسیسات شهری': 6000000, 'برداشت مسطحاتی و توپوگرافی معابر شهری جهت تفکیک': 18000000, 'برداشت توپوگرافی معابر شهری جهت کد گذاری': 15000000, 'تعیین بر و کف پلاک': 5000000, 'برداشت عوارض شهری': 7500000 },
-      'نظام مهندسی ساختمان یزد': { 'تفکیک آپارتمان': 4500000, 'ازبیلت عمرانی و تاسیسات': 8000000, 'برداشت پلاک جهت منطبق با طرح سازه': 6500000, 'آکس ستون و فنداسیون': 2500000, 'کنترل شاغولی ستون': 1800000, 'برداشت نما ساختمان': 9000000 },
-      'انجمن صنفی': { 'برداشت بلوک شهری تا عمق یک پلاک': 12000000, 'برداشت ترافیکی و المان های ترافیکی': 10000000, 'برداشت پلاک و معابر اطراف': 11000000, 'برداشت مسطحاتی و توپوگرافی عوارض معدنی': 14000000 }
-    };
-
-    Object.keys(localDatabase).forEach((org) => {
-      if (org !== 'همه' && localDatabase[org][sub] !== undefined) {
-        orgsSet.add(org);
-      }
-    });
-  }
 
   return Array.from(orgsSet);
 }
@@ -341,20 +258,7 @@ export default function App() {
     if (match && match.price != null) {
       setRemoteBaseTariff(Number(match.price));
     } else {
-      // Fallback database lookup
-      const localDatabase: Record<string, Record<string, number>> = {
-        'همه': { 'برداشت عرصه و اعیان': 3500000, 'تهیه نقشه تعیین موقعیت ملک': 7600000, 'دفع آبهای سطحی': 35000000, 'نقشه تک خطی': 1500000, 'طراحی پروفیل طولی و عرضی': 2200000, 'پیاده سازی قطعات تفکیکی': 3000000, 'پیاده سازی طرح اجرایی': 4000000 },
-        'شهرداری یزد': { 'برداشت عوارض و مبلمان و تاسیسات شهری': 6000000, 'برداشت مسطحاتی و توپوگرافی معابر شهری جهت تفکیک': 18000000, 'برداشت توپوگرافی معابر شهری جهت کد گذاری': 15000000, 'تعیین بر و کف پلاک': 5000000, 'برداشت عوارض شهری': 7500000 },
-        'نظام مهندسی ساختمان یزد': { 'تفکیک آپارتمان': 4500000, 'ازبیلت عمرانی و تاسیسات': 8000000, 'برداشت پلاک جهت منطبق با طرح سازه': 6500000, 'آکس ستون و فنداسیون': 2500000, 'کنترل شاغولی ستون': 1800000, 'برداشت نما ساختمان': 9000000 },
-        'انجمن صنفی': { 'برداشت بلوک شهری تا عمق یک پلاک': 12000000, 'برداشت ترافیکی و المان های ترافیکی': 10000000, 'برداشت پلاک و معابر اطراف': 11000000, 'برداشت مسطحاتی و توپوگرافی عوارض معدنی': 14000000 }
-      };
-
-      const orgKey = localDatabase[currentOrg] ? currentOrg : 'همه';
-      if (localDatabase[orgKey] && localDatabase[orgKey][subBranch] !== undefined) {
-        setRemoteBaseTariff(localDatabase[orgKey][subBranch]);
-      } else {
-        setRemoteBaseTariff(null);
-      }
+      setRemoteBaseTariff(0);
     }
   }, [subBranch, province, organization, tariffsList]);
 
@@ -1369,13 +1273,13 @@ export default function App() {
                             </div>
 
                             <div className={`border rounded-xl p-3 text-xs mt-2 select-none flex justify-between items-center ${
-                              remoteBaseTariff === null && !isRemoteLoading 
+                              (remoteBaseTariff === null || remoteBaseTariff === 0) && !isRemoteLoading 
                                 ? 'bg-red-50 border-red-200 text-red-600' 
                                 : 'bg-blue-50 border-blue-200 text-blue-900'
                             }`}>
-                              {remoteBaseTariff === null && !isRemoteLoading ? (
+                              {(remoteBaseTariff === null || remoteBaseTariff === 0) && !isRemoteLoading ? (
                                 <div className="text-center w-full font-bold">
-                                  تعرفهای برای این خدمات در ارگان انتخابی تعریف نشده است
+                                  تعرفه‌ای برای این خدمت در دیتابیس یافت نشد
                                 </div>
                               ) : (
                                 <>
@@ -1746,12 +1650,12 @@ export default function App() {
                           نمایش رقم خام ارزش نقشه برداری پایه ابلاغی سازمان‌ها و شهرداری مجری بدون در نظر گرفتن سختی کار شخصی
                         </p>
                         <div className="flex justify-between items-baseline flex-row-reverse">
-                          {remoteBaseTariff !== null ? (
+                          {remoteBaseTariff !== null && remoteBaseTariff !== 0 ? (
                             <span className="text-2xl font-mono font-black text-blue-950">
                               {formatPersianCurrency(remoteBaseTariff)}
                             </span>
                           ) : (
-                            <span className="text-xs font-bold text-rose-600">تعرفه مصوبی برای این صنف تعریف نشده است</span>
+                            <span className="text-xs font-bold text-rose-600">تعرفه‌ای برای این خدمت در دیتابیس یافت نشد</span>
                           )}
                           <span className="text-xs font-bold text-slate-400">ریال</span>
                         </div>
