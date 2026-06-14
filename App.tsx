@@ -148,6 +148,25 @@ function getAvailableOrganizations(sub: string, tariffsList: any[]): string[] {
   return Array.from(orgsSet);
 }
 
+function parsePersianOrEnglishFloatHelper(str: string): number {
+  if (!str) return 0;
+  const persianNumbers = [/۰/g, /۱/g, /۲/g, /۳/g, /۴/g, /۵/g, /۶/g, /۷/g, /۸/g, /۹/g];
+  let clean = str;
+  for (let i = 0; i < 10; i++) {
+    clean = clean.replace(persianNumbers[i], i.toString());
+  }
+  const dict: Record<string, string> = {
+    '۰': '0', '۱': '1', '۲': '2', '۳': '3', '۴': '4',
+    '۵': '5', '۶': '6', '۷': '7', '۸': '8', '۹': '9'
+  };
+  let resolved = '';
+  for (const char of clean) {
+    resolved += dict[char] !== undefined ? dict[char] : char;
+  }
+  const val = parseFloat(resolved);
+  return isNaN(val) ? 0 : val;
+}
+
 export default function App() {
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'simulator' | 'code'>('simulator');
@@ -171,6 +190,8 @@ export default function App() {
   const [isOfficialExpert, setIsOfficialExpert] = useState(false);
 
   const [estimationTab, setEstimationTab] = useState<1 | 2 | 3>(1);
+  const [volume, setVolume] = useState('۱۲');
+  const [fieldDays, setFieldDays] = useState('۴');
   
   const [serviceType, setServiceType] = useState('نقشه ثبتی ماده (۱۴۷)');
   const [mainService, setMainService] = useState('برداشت میدانی');
@@ -243,7 +264,7 @@ export default function App() {
     const targetOrg = cleanStr(currentOrg);
     const targetSub = cleanStr(subBranch);
 
-    const match = tariffsList.find((row: any) => {
+    const matchingCategoryRows = tariffsList.filter((row: any) => {
       const rowProv = cleanStr(row.province);
       const rowOrg = cleanStr(row.organization);
       const rowSub = cleanStr(row.sub_service);
@@ -255,15 +276,71 @@ export default function App() {
       return provinceMatches && subServiceMatches && orgMatches;
     });
 
-    if (match && match.price != null) {
-      setRemoteBaseTariff(Number(match.price));
-    } else {
-      setRemoteBaseTariff(0);
-    }
-  }, [subBranch, province, organization, tariffsList]);
+    const isTieredService = targetSub.includes('تفکیک') || targetSub.includes('تکخطی') || targetSub.includes('تکخطی') || targetSub.includes('تک خطی');
 
-  const [volume, setVolume] = useState('۱۲');
-  const [fieldDays, setFieldDays] = useState('۴');
+    if (isTieredService && matchingCategoryRows.length > 0) {
+      // Find the price for baseFixedPrice (whose unit/description contains 'ثابت')
+      const fixedRow = matchingCategoryRows.find((row: any) => {
+        const unitStrVal = cleanStr(row.unit || row.unit_type || row.description || '');
+        return unitStrVal.includes('ثابت');
+      });
+
+      let baseFixedPrice = 0;
+      if (fixedRow) {
+        baseFixedPrice = Number(fixedRow.price);
+      } else {
+        // Fallback if no fixed row explicitly contains "ثابت" in the unit/description
+        baseFixedPrice = Number(matchingCategoryRows[0].price);
+      }
+
+      const area = parsePersianOrEnglishFloatHelper(volume) || 0;
+      if (area <= 200) {
+        setRemoteBaseTariff(baseFixedPrice);
+      } else {
+        const surplus = area - 200;
+        
+        // Find other rows for tier rate
+        const tierRows = matchingCategoryRows.filter((r: any) => r.id !== fixedRow?.id);
+        
+        let matchingTierRow = tierRows.find((r: any) => {
+          const rangeStr = r.unit || r.unit_type || r.description || '';
+          const cleanRangeStr = cleanStr(rangeStr);
+          const matches = cleanRangeStr.match(/\d+/g);
+          if (matches && matches.length >= 2) {
+            const num1 = parseInt(matches[0]);
+            const num2 = parseInt(matches[1]);
+            const minStrVal = Math.min(num1, num2);
+            const maxStrVal = Math.max(num1, num2);
+            return area >= minStrVal && area <= maxStrVal;
+          } else if (matches && matches.length === 1) {
+            const num = parseInt(matches[0]);
+            if (cleanRangeStr.includes('تا') || cleanRangeStr.includes('کمتر') || cleanRangeStr.includes('زیر')) {
+              return area <= num;
+            } else if (cleanRangeStr.includes('بیشتر') || cleanRangeStr.includes('بالای') || cleanRangeStr.includes('مازاد')) {
+              return area > num;
+            }
+          }
+          return false;
+        });
+
+        if (!matchingTierRow && tierRows.length > 0) {
+          matchingTierRow = tierRows[0];
+        }
+
+        const rate = matchingTierRow ? Number(matchingTierRow.price) : 0;
+        const calculatedPrice = baseFixedPrice + (surplus * rate);
+        setRemoteBaseTariff(calculatedPrice);
+      }
+    } else {
+      // Standard service: simple direct match
+      const match = matchingCategoryRows[0];
+      if (match && match.price != null) {
+        setRemoteBaseTariff(Number(match.price));
+      } else {
+        setRemoteBaseTariff(0);
+      }
+    }
+  }, [subBranch, province, organization, tariffsList, volume]);
 
   const [supervisorUnit, setSupervisorUnit] = useState<'daily' | 'half' | 'flat'>('daily');
   const [assistantUnit, setAssistantUnit] = useState<'daily' | 'half' | 'flat'>('daily');
@@ -413,25 +490,6 @@ export default function App() {
       });
     }
   }, [allProjects, subBranch, serviceType, province]);
-
-  const parsePersianOrEnglishFloatHelper = (str: string): number => {
-    if (!str) return 0;
-    const persianNumbers = [/۰/g, /۱/g, /۲/g, /۳/g, /۴/g, /۵/g, /۶/g, /۷/g, /۸/g, /۹/g];
-    let clean = str;
-    for (let i = 0; i < 10; i++) {
-      clean = clean.replace(persianNumbers[i], i.toString());
-    }
-    const dict: Record<string, string> = {
-      '۰': '0', '۱': '1', '۲': '2', '۳': '3', '۴': '4',
-      '۵': '5', '۶': '6', '۷': '7', '۸': '8', '۹': '9'
-    };
-    let resolved = '';
-    for (const char of clean) {
-      resolved += dict[char] !== undefined ? dict[char] : char;
-    }
-    const val = parseFloat(resolved);
-    return isNaN(val) ? 0 : val;
-  };
 
   useEffect(() => {
     if (priceStrategy === 'min') {
