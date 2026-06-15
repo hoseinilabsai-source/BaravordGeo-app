@@ -200,6 +200,7 @@ export default function App() {
   const [organization, setOrganization] = useState('همه');
   const [isRemoteLoading, setIsRemoteLoading] = useState(false);
   const [remoteBaseTariff, setRemoteBaseTariff] = useState<number | null>(3500000);
+  const [tariffExplanation, setTariffExplanation] = useState<string>('');
 
   const [tariffsList, setTariffsList] = useState<any[]>([]);
   const [availableOrgs, setAvailableOrgs] = useState<string[]>(['همه']);
@@ -279,65 +280,79 @@ export default function App() {
     const isTieredService = targetSub.includes('تفکیک') || targetSub.includes('تکخطی') || targetSub.includes('تکخطی') || targetSub.includes('تک خطی');
 
     if (isTieredService && matchingCategoryRows.length > 0) {
-      // Find the price for baseFixedPrice (whose unit/description contains 'ثابت')
+      // Find the price for basePrice (whose row.unit strictly contains 'قیمت ثابت' and does NOT contain 'به اضافه')
       const fixedRow = matchingCategoryRows.find((row: any) => {
-        const unitStrVal = cleanStr(row.unit || row.unit_type || row.description || '');
-        return unitStrVal.includes('ثابت');
+        const u = row.unit || '';
+        return u.includes('قیمت ثابت') && !u.includes('به اضافه');
       });
 
-      let baseFixedPrice = 0;
+      let basePrice = 0;
       if (fixedRow) {
-        baseFixedPrice = Number(fixedRow.price);
+        basePrice = Number(fixedRow.price);
       } else {
-        // Fallback if no fixed row explicitly contains "ثابت" in the unit/description
-        baseFixedPrice = Number(matchingCategoryRows[0].price);
+        // Fallback: search with cleaned version if direct contains fails, or use first row
+        const cleanedFixedRow = matchingCategoryRows.find((row: any) => {
+          const cu = cleanStr(row.unit || '');
+          return cu.includes('قیمتثابت') && !cu.includes('بهاضافه');
+        });
+        basePrice = cleanedFixedRow ? Number(cleanedFixedRow.price) : (matchingCategoryRows[0] ? Number(matchingCategoryRows[0].price) : 0);
       }
 
       const area = parsePersianOrEnglishFloatHelper(volume) || 0;
       if (area <= 200) {
-        setRemoteBaseTariff(baseFixedPrice);
+        setRemoteBaseTariff(basePrice);
+        setTariffExplanation(`محاسبه: متراژ کمتر از ۲۰۰ متر (قیمت ثابت پایه: ${formatPersianCurrency(basePrice)} ریال)`);
       } else {
         const surplus = area - 200;
         
-        // Find other rows for tier rate
-        const tierRows = matchingCategoryRows.filter((r: any) => r.id !== fixedRow?.id);
-        
-        let matchingTierRow = tierRows.find((r: any) => {
-          const rangeStr = r.unit || r.unit_type || r.description || '';
-          const cleanRangeStr = cleanStr(rangeStr);
-          const matches = cleanRangeStr.match(/\d+/g);
-          if (matches && matches.length >= 2) {
-            const num1 = parseInt(matches[0]);
-            const num2 = parseInt(matches[1]);
-            const minStrVal = Math.min(num1, num2);
-            const maxStrVal = Math.max(num1, num2);
-            return area >= minStrVal && area <= maxStrVal;
-          } else if (matches && matches.length === 1) {
-            const num = parseInt(matches[0]);
-            if (cleanRangeStr.includes('تا') || cleanRangeStr.includes('کمتر') || cleanRangeStr.includes('زیر')) {
-              return area <= num;
-            } else if (cleanRangeStr.includes('بیشتر') || cleanRangeStr.includes('بالای') || cleanRangeStr.includes('مازاد')) {
-              return area > num;
-            }
-          }
-          return false;
-        });
+        let matchingTierRow = null;
+        let tierLabel = '';
 
-        if (!matchingTierRow && tierRows.length > 0) {
-          matchingTierRow = tierRows[0];
+        if (area >= 201 && area <= 600) {
+          tierLabel = '۲۰۱ تا ۶۰۰ متر';
+          matchingTierRow = matchingCategoryRows.find((r: any) => {
+            const u = String(r.unit || '');
+            return (u.includes('600') && u.includes('200')) || (u.includes('۶۰۰') && u.includes('۲۰۰'));
+          });
+        } else if (area >= 601 && area <= 2000) {
+          tierLabel = '۶۰۱ تا ۲۰۰۰ متر';
+          matchingTierRow = matchingCategoryRows.find((r: any) => {
+            const u = String(r.unit || '');
+            return (u.includes('2000') && u.includes('600')) || (u.includes('۲۰۰۰') && u.includes('۶۰۰'));
+          });
+        } else if (area >= 2001 && area <= 5000) {
+          tierLabel = '۲۰۰۱ تا ۵۰۰۰ متر';
+          matchingTierRow = matchingCategoryRows.find((r: any) => {
+            const u = String(r.unit || '');
+            return (u.includes('5000') && u.includes('2000')) || (u.includes('۵۰۰۰') && u.includes('۲۰۰۰'));
+          });
+        } else if (area > 5000) {
+          tierLabel = 'بیش از ۵۰۰۰ متر';
+          matchingTierRow = matchingCategoryRows.find((r: any) => {
+            const u = String(r.unit || '');
+            return u.includes('بیش از 5000') || u.includes('بیش از ۵۰۰۰') || u.includes('5000') || u.includes('۵۰۰۰');
+          });
+        }
+
+        if (!matchingTierRow && matchingCategoryRows.length > 0) {
+          const tierRows = matchingCategoryRows.filter((r: any) => r.id !== fixedRow?.id);
+          matchingTierRow = tierRows[0] || matchingCategoryRows[0];
         }
 
         const rate = matchingTierRow ? Number(matchingTierRow.price) : 0;
-        const calculatedPrice = baseFixedPrice + (surplus * rate);
+        const calculatedPrice = basePrice + (surplus * rate);
         setRemoteBaseTariff(calculatedPrice);
+        setTariffExplanation(`محاسبه: ${formatPersianCurrency(basePrice)} (پایه) + (${formatPersianCurrency(surplus)} متر مازاد × ${formatPersianCurrency(rate)} ریال نرخ پله ${tierLabel})`);
       }
     } else {
       // Standard service: simple direct match
       const match = matchingCategoryRows[0];
       if (match && match.price != null) {
         setRemoteBaseTariff(Number(match.price));
+        setTariffExplanation(`تعرفه واحد خام مصوب: ${formatPersianCurrency(Number(match.price))} ریال`);
       } else {
         setRemoteBaseTariff(0);
+        setTariffExplanation('');
       }
     }
   }, [subBranch, province, organization, tariffsList, volume]);
@@ -1353,7 +1368,7 @@ export default function App() {
                               </select>
                             </div>
 
-                            <div className={`border rounded-xl p-3 text-xs mt-2 select-none flex justify-between items-center ${
+                            <div className={`border rounded-xl p-3 text-xs mt-2 select-none flex flex-col gap-1.5 ${
                               (remoteBaseTariff === null || remoteBaseTariff === 0) && !isRemoteLoading 
                                 ? 'bg-red-50 border-red-200 text-red-600' 
                                 : 'bg-blue-50 border-blue-200 text-blue-900'
@@ -1364,16 +1379,23 @@ export default function App() {
                                 </div>
                               ) : (
                                 <>
-                                  <span className="font-bold">تعرفه مصوب پایه (استعلام برخط):</span>
-                                  {isRemoteLoading ? (
-                                    <div className="flex items-center gap-1.5 text-blue-700 font-bold animate-pulse">
-                                      <div className="w-3.5 h-3.5 border-2 border-blue-700 border-t-transparent rounded-full animate-spin"></div>
-                                      <span className="text-[10px]">در حال استعلام...</span>
+                                  <div className="flex justify-between items-center w-full">
+                                    <span className="font-bold">تعرفه مصوب پایه (استعلام برخط):</span>
+                                    {isRemoteLoading ? (
+                                      <div className="flex items-center gap-1.5 text-blue-700 font-bold animate-pulse">
+                                        <div className="w-3.5 h-3.5 border-2 border-blue-700 border-t-transparent rounded-full animate-spin"></div>
+                                        <span className="text-[10px]">در حال استعلام...</span>
+                                      </div>
+                                    ) : (
+                                      <span className="font-mono font-black text-blue-700">
+                                        {formatPersianCurrency(remoteBaseTariff ?? 0)} ریال
+                                      </span>
+                                    )}
+                                  </div>
+                                  {tariffExplanation && !isRemoteLoading && (
+                                    <div className="text-[10px] text-blue-700/80 border-t border-blue-200/50 pt-1.5 mt-0.5 text-right font-medium">
+                                      {tariffExplanation}
                                     </div>
-                                  ) : (
-                                    <span className="font-mono font-black text-blue-700">
-                                      {formatPersianCurrency(remoteBaseTariff ?? 0)} ریال
-                                    </span>
                                   )}
                                 </>
                               )}
@@ -1740,6 +1762,11 @@ export default function App() {
                           )}
                           <span className="text-xs font-bold text-slate-400">ریال</span>
                         </div>
+                        {tariffExplanation && (
+                          <div className="text-[10px] text-slate-500 mt-2 text-right font-medium">
+                            {tariffExplanation}
+                          </div>
+                        )}
                       </div>
 
                       {/* ۳. کارت سوم (پیشنهاد هوشمندانه سیستم) */}
