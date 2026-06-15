@@ -677,6 +677,20 @@ export default function App() {
     showToast('خروج با موفقیت انجام شد');
   };
 
+  const calcPSmart = () => {
+    const C = Number(totalCalculatedCost) || 0;
+    const T = Number(remoteBaseTariff) || 0;
+    const P_max = Number(marketPulse.maxPrice) || 0;
+    const P_min = Number(marketPulse.minPrice) || 0;
+    const alpha = 0.5;
+    const P_base = C + alpha * (T - C);
+    if (marketPulse.hasData && P_max > 0 && P_min > 0) {
+      return Math.min(P_max, Math.max(P_min, P_base));
+    }
+    return P_base;
+  };
+  const P_smart = calcPSmart();
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-emerald-500 selection:text-white">
       
@@ -1778,15 +1792,11 @@ export default function App() {
                           ۳. پیشنهاد هوشمندانه سیستم (تسطیح پویای صنف)
                         </span>
                         <p className="text-[10.5px] text-slate-300 opacity-90 mb-3 leading-relaxed">
-                          پیشنهاد تسطیح‌شده بر اساس میانگین وزنی بازار کشوری هدایت شده با حاشیه سود بالاسری صنف [{overheadProfitPct}%]
+                          محاسبه بر اساس توازن هزینه مجری و تعرفه قانونی (ضریب آلفا: 0.5) با اعمال کنترل دامپینگ بازار
                         </p>
                         <div className="flex justify-between items-baseline flex-row-reverse">
                           <span className="text-2xl font-mono font-black animate-pulse" style={{ color: brandTheme.accent }}>
-                            {formatPersianCurrency(
-                              marketPulse.hasData && marketPulse.avgPrice 
-                                ? Math.round(marketPulse.avgPrice * (1 + (overheadProfitPct / 100))) 
-                                : Math.round(totalCalculatedCost * 1.15)
-                            )}
+                            {formatPersianCurrency(P_smart)}
                           </span>
                           <span className="text-xs font-bold text-slate-400">ریال</span>
                         </div>
