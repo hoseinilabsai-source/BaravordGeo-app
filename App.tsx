@@ -398,6 +398,9 @@ export default function App() {
   const [marketPulse, setMarketPulse] = useState({ count: 0, maxPrice: 0, minPrice: 0, avgPrice: 0, hasData: false });
   const [allProjects, setAllProjects] = useState<any[]>([]);
 
+  const [finalPriceStrategy, setFinalPriceStrategy] = useState<'cost' | 'official' | 'smart'>('smart');
+  const [finalSelectedPrice, setFinalSelectedPrice] = useState<number>(0);
+
   const brandTheme = {
     primary: "#0B1D35", 
     accent: "#C5A059",
@@ -609,7 +612,7 @@ export default function App() {
         has_license: hasLicense,
         is_official_expert: isOfficialExpert,
         hardness: hardnessMultiplier,
-        final_price: parseInt(finalAgreedPrice) || Math.round(totalCalculatedCost),
+        final_price: finalSelectedPrice || Math.round(totalCalculatedCost),
       };
 
       let response;
@@ -690,6 +693,20 @@ export default function App() {
     return P_base;
   };
   const P_smart = calcPSmart();
+
+  useEffect(() => {
+    if (finalPriceStrategy === 'cost') {
+      setFinalSelectedPrice(totalCalculatedCost);
+    } else if (finalPriceStrategy === 'official') {
+      setFinalSelectedPrice(remoteBaseTariff || 0);
+    } else {
+      setFinalSelectedPrice(P_smart);
+    }
+  }, [finalPriceStrategy, totalCalculatedCost, remoteBaseTariff, P_smart]);
+
+  useEffect(() => {
+    setFinalAgreedPrice(finalSelectedPrice.toString());
+  }, [finalSelectedPrice]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-emerald-500 selection:text-white">
@@ -1856,62 +1873,99 @@ export default function App() {
                           <span className="text-xs font-bold" style={{ fontWeight: 'bold' }}>تعهد نهایی قرارداد پیش‌نویس</span>
                         </div>
                         <p className="text-[10px] text-slate-500 leading-normal">
-                          یکی از دو استراتژی زیر را جهت نهایی‌سازی در لایحه قرارداد انتخاب نمایید:
+                          یکی از استراتژی‌های زیر را جهت نهایی‌سازی در لایحه قرارداد انتخاب نمایید:
                         </p>
                         
                         <div className="space-y-2 pt-1">
                           {/* 1. Min Price Option */}
                           <div 
-                            onClick={() => setPriceStrategy('min')}
+                            onClick={() => setFinalPriceStrategy('cost')}
                             className="p-3 rounded-lg border text-right cursor-pointer transition-all flex flex-col justify-between"
                             style={{
-                              borderColor: priceStrategy === 'min' ? brandTheme.accent : '#e2e8f0',
-                              backgroundColor: priceStrategy === 'min' ? brandTheme.accent + '15' : 'transparent'
+                              borderColor: finalPriceStrategy === 'cost' ? brandTheme.accent : '#e2e8f0',
+                              backgroundColor: finalPriceStrategy === 'cost' ? brandTheme.accent + '15' : 'transparent'
                             }}
                           >
                             <div className="flex items-center justify-between flex-row-reverse leading-none">
-                              <span className="text-[11px] font-bold font-sans" style={{ color: priceStrategy === 'min' ? brandTheme.primary : '#475569', fontWeight: 'bold' }}>برآورد کف (پایین‌ترین حد با سود پایه)</span>
+                              <span className="text-[11px] font-bold font-sans" style={{ color: finalPriceStrategy === 'cost' ? brandTheme.primary : '#475569', fontWeight: 'bold' }}>برآورد هزینه و سود شما</span>
                               <input 
                                 type="radio" 
-                                name="priceStrategy"
-                                checked={priceStrategy === 'min'} 
-                                onChange={() => setPriceStrategy('min')} 
+                                name="finalPriceStrategy"
+                                checked={finalPriceStrategy === 'cost'} 
+                                onChange={() => setFinalPriceStrategy('cost')} 
                                 className="cursor-pointer h-3.5 w-3.5"
                                 style={{ accentColor: brandTheme.accent }}
                               />
                             </div>
+                            <div className="text-[10px] text-slate-400 mt-1 font-semibold leading-relaxed">
+                              بر اساس هزینه‌های واقعی، استهلاک و سود شخصی.
+                            </div>
                             <div className="flex items-baseline justify-between mt-1.5 font-mono">
-                              <span className="text-[9px] text-slate-400 font-sans">بر اساس حداقل سود مهندسی شانس رقابت بالا</span>
-                              <span className="text-sm font-black" style={{ color: priceStrategy === 'min' ? brandTheme.primary : '#1e293b' }}>
-                                {formatPersianCurrency(minPrice || Math.round(totalCalculatedCost * 0.85))} <span className="text-[10px] font-sans font-bold">ریال</span>
+                              <span className="text-[9px] text-slate-400 font-sans">هزینه‌های واقعی (کارت اول)</span>
+                              <span className="text-sm font-black" style={{ color: finalPriceStrategy === 'cost' ? brandTheme.primary : '#1e293b' }}>
+                                {formatPersianCurrency(totalCalculatedCost)} <span className="text-[10px] font-sans font-bold">ریال</span>
                               </span>
                             </div>
                           </div>
 
-                          {/* 2. Max Price Option */}
+                          {/* 2. Official Tariff Option */}
                           <div 
-                            onClick={() => setPriceStrategy('max')}
+                            onClick={() => setFinalPriceStrategy('official')}
                             className="p-3 rounded-lg border text-right cursor-pointer transition-all flex flex-col justify-between"
                             style={{
-                              borderColor: priceStrategy === 'max' ? brandTheme.accent : '#e2e8f0',
-                              backgroundColor: priceStrategy === 'max' ? brandTheme.accent + '15' : 'transparent'
+                              borderColor: finalPriceStrategy === 'official' ? brandTheme.accent : '#e2e8f0',
+                              backgroundColor: finalPriceStrategy === 'official' ? brandTheme.accent + '15' : 'transparent'
                             }}
                           >
                             <div className="flex items-center justify-between flex-row-reverse leading-none">
-                              <span className="text-[11px] font-bold font-sans" style={{ color: priceStrategy === 'max' ? brandTheme.primary : '#475569', fontWeight: 'bold' }}>برآورد سقف (بالاترین حد با سختی کار متراژ)</span>
+                              <span className="text-[11px] font-bold font-sans" style={{ color: finalPriceStrategy === 'official' ? brandTheme.primary : '#475569', fontWeight: 'bold' }}>تعرفه رسمی مصوب</span>
                               <input 
                                 type="radio" 
-                                name="priceStrategy"
-                                checked={priceStrategy === 'max'} 
-                                onChange={() => setPriceStrategy('max')} 
+                                name="finalPriceStrategy"
+                                checked={finalPriceStrategy === 'official'} 
+                                onChange={() => setFinalPriceStrategy('official')} 
                                 className="cursor-pointer h-3.5 w-3.5"
                                 style={{ accentColor: brandTheme.accent }}
                               />
                             </div>
+                            <div className="text-[10px] text-slate-400 mt-1 font-semibold leading-relaxed">
+                              بر اساس نرخ خام ابلاغی سازمان‌ها.
+                            </div>
                             <div className="flex items-baseline justify-between mt-1.5 font-mono">
-                              <span className="text-[9px] text-slate-400 font-sans">با احتساب کامل ریسک‌های مهندسی و نظارتی بالا</span>
-                              <span className="text-sm font-black" style={{ color: priceStrategy === 'max' ? brandTheme.primary : '#1e293b' }}>
-                                {formatPersianCurrency(maxPrice || Math.round(totalCalculatedCost * 1.25))} <span className="text-[10px] font-sans font-bold">ریال</span>
+                              <span className="text-[9px] text-slate-400 font-sans">نرخ خام مصوب (کارت دوم)</span>
+                              <span className="text-sm font-black" style={{ color: finalPriceStrategy === 'official' ? brandTheme.primary : '#1e293b' }}>
+                                {formatPersianCurrency(remoteBaseTariff || 0)} <span className="text-[10px] font-sans font-bold">ریال</span>
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* 3. Smart Tariff Option */}
+                          <div 
+                            onClick={() => setFinalPriceStrategy('smart')}
+                            className="p-3 rounded-lg border text-right cursor-pointer transition-all flex flex-col justify-between"
+                            style={{
+                              borderColor: finalPriceStrategy === 'smart' ? brandTheme.accent : '#e2e8f0',
+                              backgroundColor: finalPriceStrategy === 'smart' ? brandTheme.accent + '15' : 'transparent'
+                            }}
+                          >
+                            <div className="flex items-center justify-between flex-row-reverse leading-none">
+                              <span className="text-[11px] font-bold font-sans" style={{ color: finalPriceStrategy === 'smart' ? brandTheme.primary : '#475569', fontWeight: 'bold' }}>پیشنهاد هوشمند سیستم</span>
+                              <input 
+                                type="radio" 
+                                name="finalPriceStrategy"
+                                checked={finalPriceStrategy === 'smart'} 
+                                onChange={() => setFinalPriceStrategy('smart')} 
+                                className="cursor-pointer h-3.5 w-3.5"
+                                style={{ accentColor: brandTheme.accent }}
+                              />
+                            </div>
+                            <div className="text-[10px] text-slate-400 mt-1 font-semibold leading-relaxed">
+                              تعادل بهینه بین هزینه‌های مجری و کشش بازار.
+                            </div>
+                            <div className="flex items-baseline justify-between mt-1.5 font-mono">
+                              <span className="text-[9px] text-slate-400 font-sans">تعدیل شده با الگوریتم هوشمند</span>
+                              <span className="text-sm font-black" style={{ color: finalPriceStrategy === 'smart' ? brandTheme.primary : '#1e293b' }}>
+                                {formatPersianCurrency(P_smart)} <span className="text-[10px] font-sans font-bold">ریال</span>
                               </span>
                             </div>
                           </div>
@@ -1921,7 +1975,7 @@ export default function App() {
                         <div className="mt-1 bg-slate-50 border border-slate-100 rounded-lg p-2 flex justify-between items-center flex-row-reverse">
                           <span className="text-[9px] font-bold text-slate-400">مبلغ انتخاب شده پیش‌نویس:</span>
                           <span className="text-sm font-mono font-black animate-pulse" style={{ color: brandTheme.primary }}>
-                            {formatPersianCurrency(parseInt(finalAgreedPrice) || 0)} <span className="text-[10px] font-sans font-bold text-slate-400">ریال</span>
+                            {formatPersianCurrency(finalSelectedPrice)} <span className="text-[10px] font-sans font-bold text-slate-400">ریال</span>
                           </span>
                         </div>
                       </div>
@@ -1934,7 +1988,7 @@ export default function App() {
                         className="w-full text-white font-bold py-3.5 px-4 rounded-xl shadow-md text-xs flex justify-center items-center gap-1.5 cursor-pointer hover:scale-[1.01] transition-all"
                         style={{ backgroundColor: brandTheme.primary, fontWeight: 'bold' }}
                       >
-                        ثبت نهایی پروژه در سیستم مالکیتی
+                        ثبت نهایی و صدور پیش‌فاکتور
                       </button>
                     </div>
 
