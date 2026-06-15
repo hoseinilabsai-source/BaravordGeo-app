@@ -513,9 +513,28 @@ export default function App() {
   };
 
   const runCalculationAndNavigate = () => {
-    const days = parseInt(fieldDays) || 1;
+    const days = Math.max(1, Number(fieldDays) || 1);
+
+    const parseSafeVal = (val: any): number => {
+      if (val === undefined || val === null || val === '') return 0;
+      const parsed = Number(val);
+      return isNaN(parsed) ? 0 : parsed;
+    };
     
-    const getItemCost = (price: number, count: number, unit: 'daily' | 'half' | 'flat') => {
+    const getSafeItemCost = (rawPrice: any, rawCount: any, unit: 'daily' | 'half' | 'flat') => {
+      const price = parseSafeVal(rawPrice);
+      // count could be empty string or 0 (or undefined)
+      let count = rawCount === '' || rawCount === undefined || rawCount === null ? 0 : Number(rawCount);
+      if (isNaN(count)) count = 0;
+
+      if (count === 0 && (rawCount === '' || rawCount === undefined || rawCount === null)) {
+        if (unit === 'flat') {
+          count = 1;
+        } else {
+          count = 0;
+        }
+      }
+
       const base = price * count;
       if (unit === 'daily' || unit === 'half') {
         return base * days;
@@ -523,28 +542,32 @@ export default function App() {
       return base;
     };
 
-    const personnelBaseSum = getItemCost(supervisorPrice, supervisorCount, supervisorUnit) + 
-                             getItemCost(assistantPrice, assistantCount, assistantUnit);
+    const personnelBaseSum = getSafeItemCost(supervisorPrice, supervisorCount, supervisorUnit) + 
+                             getSafeItemCost(assistantPrice, assistantCount, assistantUnit);
 
-    const equipmentBaseSum = getItemCost(totalStationPrice, totalStationCount, totalStationUnit) + 
-                             getItemCost(gpsPrice, gpsCount, gpsUnit) + 
-                             getItemCost(scannerPrice, scannerCount, scannerUnit);
+    const equipmentBaseSum = getSafeItemCost(totalStationPrice, totalStationCount, totalStationUnit) + 
+                             getSafeItemCost(gpsPrice, gpsCount, gpsUnit) + 
+                             getSafeItemCost(scannerPrice, scannerCount, scannerUnit);
 
-    const officeBaseSum = getItemCost(officePrice, officeCount, officeUnit);
+    const officeBaseSum = getSafeItemCost(officePrice, officeCount, officeUnit);
 
-    const logisticsBaseSum = getItemCost(logisticsPrice, logisticsCount, logisticsUnit) + 
-                             getItemCost(feedingPrice, feedingCount, feedingUnit);
+    const logisticsBaseSum = getSafeItemCost(logisticsPrice, logisticsCount, logisticsUnit) + 
+                             getSafeItemCost(feedingPrice, feedingCount, feedingUnit);
 
     const baseTotalCost = personnelBaseSum + equipmentBaseSum + officeBaseSum + logisticsBaseSum;
-    const costWithHardness = baseTotalCost * hardnessMultiplier;
-    const batchedRawCost = costWithHardness / batchingFactor;
-    const costWithOverhead = batchedRawCost * (1 + (overheadProfitPct / 100));
-    const finalBillValue = costWithOverhead * (1 - (legalDeductionsPct / 100));
+    const concurrentDivisor = Math.max(1, parseSafeVal(batchingFactor) || 1);
+    const batchedRawCost = baseTotalCost / concurrentDivisor;
+    const hardness = parseSafeVal(hardnessMultiplier) || 1.0;
+    const costWithHardness = batchedRawCost * hardness;
+    const overheadPct = parseSafeVal(overheadProfitPct) || 0;
+    const costWithOverhead = costWithHardness * (1 + (overheadPct / 100));
+    const legalPct = parseSafeVal(legalDeductionsPct) || 0;
+    const finalBillValue = costWithOverhead * (1 + (legalPct / 100));
 
-    setTotalCalculatedCost(finalBillValue);
+    setTotalCalculatedCost(Math.round(finalBillValue));
     
-    const minVal = ((baseTotalCost * 1.0) / batchingFactor) * 1.05 * (1 - (legalDeductionsPct / 100));
-    const maxVal = ((baseTotalCost * 1.5) / batchingFactor) * 1.25 * (1 - (legalDeductionsPct / 100));
+    const minVal = (baseTotalCost / concurrentDivisor) * 1.05 * (1 + (legalPct / 100));
+    const maxVal = ((baseTotalCost * 1.5) / concurrentDivisor) * 1.25 * (1 + (legalPct / 100));
 
     setMinPrice(Math.round(minVal) || Math.round(finalBillValue * 0.85));
     setMaxPrice(Math.round(maxVal) || Math.round(finalBillValue * 1.25));
