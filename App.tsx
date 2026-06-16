@@ -531,7 +531,8 @@ export default function App() {
   };
 
   const runCalculationAndNavigate = () => {
-    const days = Math.max(1, Number(fieldDays) || 1);
+    // Parse field days supporting both Persian and English digits safely
+    const days = Math.max(1, parsePersianOrEnglishFloatHelper(fieldDays) || 1);
 
     const parseSafeVal = (val: any): number => {
       if (val === undefined || val === null || val === '') return 0;
@@ -539,18 +540,21 @@ export default function App() {
       return isNaN(parsed) ? 0 : parsed;
     };
     
-    const getSafeItemCost = (rawPrice: any, rawCount: any, unit: 'daily' | 'half' | 'flat') => {
+    // hasInput determines if the cost row has a user-editable "count" input field in the UI
+    const getSafeItemCost = (rawPrice: any, rawCount: any, unit: 'daily' | 'half' | 'flat', hasInput: boolean) => {
       const price = parseSafeVal(rawPrice);
-      // count could be empty string or 0 (or undefined)
-      let count = rawCount === '' || rawCount === undefined || rawCount === null ? 0 : Number(rawCount);
-      if (isNaN(count)) count = 0;
+      let count = 0;
 
-      if (count === 0 && (rawCount === '' || rawCount === undefined || rawCount === null)) {
-        if (unit === 'flat') {
-          count = 1;
-        } else {
+      if (hasInput) {
+        if (rawCount === '' || rawCount === undefined || rawCount === null) {
           count = 0;
+        } else {
+          count = Number(rawCount);
+          if (isNaN(count)) count = 0;
         }
+      } else {
+        // Fixed/flat logistics or feeding items map to a default count of 1
+        count = 1;
       }
 
       const base = price * count;
@@ -560,17 +564,17 @@ export default function App() {
       return base;
     };
 
-    const personnelBaseSum = getSafeItemCost(supervisorPrice, supervisorCount, supervisorUnit) + 
-                             getSafeItemCost(assistantPrice, assistantCount, assistantUnit);
+    const personnelBaseSum = getSafeItemCost(supervisorPrice, supervisorCount, supervisorUnit, true) + 
+                             getSafeItemCost(assistantPrice, assistantCount, assistantUnit, true);
 
-    const equipmentBaseSum = getSafeItemCost(totalStationPrice, totalStationCount, totalStationUnit) + 
-                             getSafeItemCost(gpsPrice, gpsCount, gpsUnit) + 
-                             getSafeItemCost(scannerPrice, scannerCount, scannerUnit);
+    const equipmentBaseSum = getSafeItemCost(totalStationPrice, totalStationCount, totalStationUnit, true) + 
+                             getSafeItemCost(gpsPrice, gpsCount, gpsUnit, true) + 
+                             getSafeItemCost(scannerPrice, scannerCount, scannerUnit, true);
 
-    const officeBaseSum = getSafeItemCost(officePrice, officeCount, officeUnit);
+    const officeBaseSum = getSafeItemCost(officePrice, officeCount, officeUnit, true);
 
-    const logisticsBaseSum = getSafeItemCost(logisticsPrice, logisticsCount, logisticsUnit) + 
-                             getSafeItemCost(feedingPrice, feedingCount, feedingUnit);
+    const logisticsBaseSum = getSafeItemCost(logisticsPrice, logisticsCount, logisticsUnit, false) + 
+                             getSafeItemCost(feedingPrice, feedingCount, feedingUnit, false);
 
     const baseTotalCost = personnelBaseSum + equipmentBaseSum + officeBaseSum + logisticsBaseSum;
     const concurrentDivisor = Math.max(1, parseSafeVal(batchingFactor) || 1);
